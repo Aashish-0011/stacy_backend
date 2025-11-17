@@ -21,6 +21,7 @@ load_dotenv()
 # load Stable Diffusion model
 model_path = os.getenv("IMG_MODEL")
 print("Loading model from:", model_path)
+print('Gpu availale:', torch.cuda.is_available())
 
 pipe = StableDiffusionPipeline.from_single_file(
     model_path,
