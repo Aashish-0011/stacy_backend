@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse
-from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionXLPipeline
 import torch
 from io import BytesIO
 import requests
@@ -23,7 +23,7 @@ model_path = os.getenv("IMG_MODEL")
 print("Loading model from:", model_path)
 print('Gpu availale:', torch.cuda.is_available())
 
-pipe = StableDiffusionPipeline.from_single_file(
+pipe = StableDiffusionXLPipeline.from_single_file(
     model_path,
     torch_dtype=torch.float16,
     variant="fp16",             # <-- critical
