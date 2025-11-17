@@ -156,7 +156,13 @@ def generate_image_from_prompt(data: Prompt):
     print("Generating image for prompt:", data.prompt)
 
 
-    result = pipe(data.prompt)
+    result = pipe(
+        prompt=data.prompt,
+        negative_prompt="",
+        num_inference_steps=30,
+        guidance_scale=5,
+    )
+    print("Image generated successfully.",result)
     img = result.images[0]
 
     # Save image for future access
