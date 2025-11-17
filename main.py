@@ -26,9 +26,16 @@ print('Gpu availale:', torch.cuda.is_available())
 pipe = StableDiffusionPipeline.from_single_file(
     model_path,
     torch_dtype=torch.float16,
-    device="cuda"
+    variant="fp16",             # <-- critical
+    use_safetensors=True,
+    local_files_only=True,
+    low_cpu_mem_usage=True,     # <-- prevents double GPU allocation
 )
-pipe.safety_checker = None
+
+pipe = pipe.to("cuda", torch_dtype=torch.float16)
+
+pipe.enable_xformers_memory_efficient_attention()
+print("Model loaded successfully.")
 
 # Folder to store generated images
 os.makedirs("outputs", exist_ok=True)
