@@ -25,8 +25,9 @@ print('Gpu availale:', torch.cuda.is_available())
 
 pipe = StableDiffusionPipeline.from_single_file(
     model_path,
-    torch_dtype=torch.float16
-).to("cuda")
+    torch_dtype=torch.float16,
+    device="cuda"
+)
 pipe.safety_checker = None
 
 # Folder to store generated images
