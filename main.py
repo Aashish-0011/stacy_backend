@@ -15,6 +15,8 @@ import shutil
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
+from fastapi.staticfiles import StaticFiles
+
 
 
 load_dotenv()
@@ -42,6 +44,9 @@ os.makedirs("outputs", exist_ok=True)
 
 
 app = FastAPI()
+# Expose static image folder publicly
+app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+
 
 # COMFY_URL = "https://vgse6bydhunbzc-8188.proxy.runpod.net/"   # change to RunPod URL if remote
 
