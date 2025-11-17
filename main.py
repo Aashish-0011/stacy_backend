@@ -151,6 +151,8 @@ class Prompt(BaseModel):
     prompt: str
 
 # generate the image from the prompt
+
+@app.post("/generate_image")
 def generate_image_from_prompt(data: Prompt):
     print("Generating image for prompt:", data.prompt)
 
