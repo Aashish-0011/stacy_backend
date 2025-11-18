@@ -51,7 +51,7 @@ def get_long_prompt_embeddings(pipe, prompt: str):
         all_embeddings.append(emb)
 
     # Average the embeddings (best method for SDXL)
-    final_embedding = torch.mean(torch.stack(all_embeddings), dim=0)
+    final_embedding = torch.cat(all_embeddings, dim=1)
 
     return final_embedding
 
