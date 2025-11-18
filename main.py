@@ -16,6 +16,44 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
+from transformers import CLIPTokenizer
+tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+
+
+
+def get_long_prompt_embeddings(pipe, prompt: str):
+    """
+    Allows SDXL to process prompts larger than 77 tokens.
+    """
+    device = pipe.device
+    text_encoder = pipe.text_encoder
+
+    # Tokenize the whole prompt without truncation
+    tokens = tokenizer(
+        prompt,
+        return_tensors="pt",
+        truncation=False,
+        add_special_tokens=True
+    )
+
+    input_ids = tokens.input_ids[0]
+
+    # Break into 75-token chunks (keep space for special tokens)
+    chunk_size = 75
+    chunks = [input_ids[i:i + chunk_size] for i in range(0, len(input_ids), chunk_size)]
+
+    # Encode each chunk separately
+    all_embeddings = []
+    for chunk in chunks:
+        chunk = chunk.unsqueeze(0).to(device)
+        with torch.no_grad():
+            emb = text_encoder(chunk)[0]
+        all_embeddings.append(emb)
+
+    # Average the embeddings (best method for SDXL)
+    final_embedding = torch.mean(torch.stack(all_embeddings), dim=0)
+
+    return final_embedding
 
 
 
@@ -182,10 +220,12 @@ class Prompt(BaseModel):
 @app.post("/generate_image")
 def generate_image_from_prompt(data: Prompt):
     print("Generating image for prompt:", data.prompt)
+    prompt_embeds = get_long_prompt_embeddings(pipe, data.prompt)
 
 
     result = pipe(
-        prompt=data.prompt,
+        # prompt=data.prompt,
+        prompt_embeds=prompt_embeds,
         negative_prompt="",
         num_inference_steps=28,
         guidance_scale=4,
