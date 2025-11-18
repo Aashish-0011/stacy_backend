@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse
-from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler
+from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler, LCMScheduler
 import torch
 from io import BytesIO
 import requests
@@ -102,15 +102,16 @@ pipe = StableDiffusionXLPipeline.from_single_file(
 pipe = pipe.to("cuda", torch_dtype=torch.float16)
 pipe.enable_xformers_memory_efficient_attention()
 
-pipe.enable_attention_slicing()        # safe, reduces peak VRAM
-pipe.enable_vae_slicing()  
 
 # DPM++ SDE (2M) + Karras
-pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
-pipe.scheduler.use_karras_sigmas = True
-pipe.scheduler.algorithm_type = "dpmsolver++"   # DPM++
-pipe.scheduler.solver_order = 2                 # 2M
-pipe.scheduler.config.prediction_type = "v_prediction"   # SGM Uniform
+# pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
+pipe.scheduler.beta_schedule = "exponential"
+
+# pipe.scheduler.use_karras_sigmas = True
+# # pipe.scheduler.algorithm_type = "dpmsolver++"   # DPM++
+# pipe.scheduler.solver_order = 2                 # 2M
+# pipe.scheduler.config.prediction_type = "v_prediction"   # SGM Uniform
 
 
 
@@ -121,7 +122,7 @@ print("Lora path:", lora_path)
 if lora_path and os.path.exists(lora_path):
     print("Applying LoRA from:", lora_path)
     pipe.load_lora_weights(lora_path)
-    pipe.fuse_lora(lora_scale=0.8)
+    pipe.fuse_lora(lora_scale=1.0)
     print("LoRA applied successfully.")
 else:
     print("⚠ LoRA NOT FOUND:", lora_path)
