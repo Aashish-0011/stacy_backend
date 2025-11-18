@@ -21,63 +21,63 @@ tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
 
 
 
-def get_long_prompt_embeddings(pipe, prompt: str):
-    device = pipe.device
-    tokenizer = pipe.tokenizer
-    text_encoder = pipe.text_encoder
-    text_encoder_2 = pipe.text_encoder_2   # SDXL second encoder
+# def get_long_prompt_embeddings(pipe, prompt: str):
+#     device = pipe.device
+#     tokenizer = pipe.tokenizer
+#     text_encoder = pipe.text_encoder
+#     text_encoder_2 = pipe.text_encoder_2   # SDXL second encoder
 
-    # ------------ TOKENIZE WITHOUT TRUNCATION ------------
-    tokens = tokenizer(
-        prompt,
-        return_tensors="pt",
-        truncation=False,
-        add_special_tokens=True
-    )
-    input_ids = tokens.input_ids[0]
+#     # ------------ TOKENIZE WITHOUT TRUNCATION ------------
+#     tokens = tokenizer(
+#         prompt,
+#         return_tensors="pt",
+#         truncation=False,
+#         add_special_tokens=True
+#     )
+#     input_ids = tokens.input_ids[0]
 
-    # Remove CLS/EOS so each chunk can add its own
-    if input_ids[0] == tokenizer.bos_token_id:
-        input_ids = input_ids[1:]
-    if input_ids[-1] == tokenizer.eos_token_id:
-        input_ids = input_ids[:-1]
+#     # Remove CLS/EOS so each chunk can add its own
+#     if input_ids[0] == tokenizer.bos_token_id:
+#         input_ids = input_ids[1:]
+#     if input_ids[-1] == tokenizer.eos_token_id:
+#         input_ids = input_ids[:-1]
 
-    # ------------ SPLIT INTO 75-TOKEN CHUNKS ------------
-    chunk_size = 75
-    chunks = [input_ids[i:i + chunk_size] for i in range(0, len(input_ids), chunk_size)]
+#     # ------------ SPLIT INTO 75-TOKEN CHUNKS ------------
+#     chunk_size = 75
+#     chunks = [input_ids[i:i + chunk_size] for i in range(0, len(input_ids), chunk_size)]
 
-    all_prompt_embeds = []
-    all_pooled_embeds = []
+#     all_prompt_embeds = []
+#     all_pooled_embeds = []
 
-    for raw in chunks:
-        # chunk = chunk.unsqueeze(0).to(device)
-        # Re-add required tokens so chunk length is <= 77
-        chunk = torch.cat([
-            torch.tensor([tokenizer.bos_token_id]),
-            raw,
-            torch.tensor([tokenizer.eos_token_id])
-        ])
+#     for raw in chunks:
+#         # chunk = chunk.unsqueeze(0).to(device)
+#         # Re-add required tokens so chunk length is <= 77
+#         chunk = torch.cat([
+#             torch.tensor([tokenizer.bos_token_id]),
+#             raw,
+#             torch.tensor([tokenizer.eos_token_id])
+#         ])
 
-        chunk = chunk.unsqueeze(0).to(device)
+#         chunk = chunk.unsqueeze(0).to(device)
 
-        with torch.no_grad():
-            # encoder 1 → prompt_embeds
-            enc_out_1 = text_encoder(chunk, output_hidden_states=True)
-            prompt_emb = enc_out_1.hidden_states[-2]     # (1, seq, 2048)
+#         with torch.no_grad():
+#             # encoder 1 → prompt_embeds
+#             enc_out_1 = text_encoder(chunk, output_hidden_states=True)
+#             prompt_emb = enc_out_1.hidden_states[-2]     # (1, seq, 2048)
 
-            # encoder 2 → pooled_prompt_embeds
-            enc_out_2 = text_encoder_2(chunk, output_hidden_states=True)
-            last_hidden = enc_out_2.hidden_states[-2] 
-            pooled_emb = last_hidden.mean(dim=1)        # (1, 1280)
+#             # encoder 2 → pooled_prompt_embeds
+#             enc_out_2 = text_encoder_2(chunk, output_hidden_states=True)
+#             last_hidden = enc_out_2.hidden_states[-2] 
+#             pooled_emb = last_hidden.mean(dim=1)        # (1, 1280)
 
-        all_prompt_embeds.append(prompt_emb)
-        all_pooled_embeds.append(pooled_emb)
+#         all_prompt_embeds.append(prompt_emb)
+#         all_pooled_embeds.append(pooled_emb)
 
-    # ------------ CONCATENATE CHUNKS ------------
-    final_prompt_embeds = torch.cat(all_prompt_embeds, dim=1)      # (1, long_seq, 2048)
-    final_pooled_embeds = torch.mean(torch.stack(all_pooled_embeds), dim=0)  # (1, 1280)
+#     # ------------ CONCATENATE CHUNKS ------------
+#     final_prompt_embeds = torch.cat(all_prompt_embeds, dim=1)      # (1, long_seq, 2048)
+#     final_pooled_embeds = torch.mean(torch.stack(all_pooled_embeds), dim=0)  # (1, 1280)
 
-    return final_prompt_embeds, final_pooled_embeds
+#     return final_prompt_embeds, final_pooled_embeds
 
 
 
@@ -101,6 +101,9 @@ pipe = StableDiffusionXLPipeline.from_single_file(
 
 pipe = pipe.to("cuda", torch_dtype=torch.float16)
 pipe.enable_xformers_memory_efficient_attention()
+
+pipe.enable_attention_slicing()        # safe, reduces peak VRAM
+pipe.enable_vae_slicing()  
 
 # DPM++ SDE (2M) + Karras
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
@@ -246,13 +249,18 @@ class Prompt(BaseModel):
 def generate_image_from_prompt(data: Prompt):
     print("Generating image for prompt:", data.prompt)
     # prompt_embeds, pooled_embeds = get_long_prompt_embeddings(pipe, data.prompt)
+    negative = (
+        "low quality, bad anatomy, deformed, extra limbs, blurry, out of frame, "
+        "oversaturated, undersaturated, watermark, text, logo, finger mutation, "
+        "long neck, distorted face, poorly drawn, jpeg artifacts, noisy, grainy"
+    )
 
 
     result = pipe(
         prompt=data.prompt,
         # prompt_embeds=prompt_embeds,
         # pooled_prompt_embeds=pooled_embeds,
-        negative_prompt="",
+        negative_prompt=negative,
         num_inference_steps=40,
         guidance_scale=4,
         width=832,
