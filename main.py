@@ -22,38 +22,48 @@ tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
 
 
 def get_long_prompt_embeddings(pipe, prompt: str):
-    """
-    Allows SDXL to process prompts larger than 77 tokens.
-    """
     device = pipe.device
+    tokenizer = pipe.tokenizer
     text_encoder = pipe.text_encoder
+    text_encoder_2 = pipe.text_encoder_2   # SDXL second encoder
 
-    # Tokenize the whole prompt without truncation
+    # ------------ TOKENIZE WITHOUT TRUNCATION ------------
     tokens = tokenizer(
         prompt,
         return_tensors="pt",
         truncation=False,
         add_special_tokens=True
     )
-
     input_ids = tokens.input_ids[0]
 
-    # Break into 75-token chunks (keep space for special tokens)
+    # ------------ SPLIT INTO 75-TOKEN CHUNKS ------------
     chunk_size = 75
     chunks = [input_ids[i:i + chunk_size] for i in range(0, len(input_ids), chunk_size)]
 
-    # Encode each chunk separately
-    all_embeddings = []
+    all_prompt_embeds = []
+    all_pooled_embeds = []
+
     for chunk in chunks:
         chunk = chunk.unsqueeze(0).to(device)
+
         with torch.no_grad():
-            emb = text_encoder(chunk)[0]
-        all_embeddings.append(emb)
+            # encoder 1 → prompt_embeds
+            enc_out_1 = text_encoder(chunk, output_hidden_states=True)
+            prompt_emb = enc_out_1.hidden_states[-2]     # (1, seq, 2048)
 
-    # Average the embeddings (best method for SDXL)
-    final_embedding = torch.cat(all_embeddings, dim=1)
+            # encoder 2 → pooled_prompt_embeds
+            enc_out_2 = text_encoder_2(chunk, output_hidden_states=True)
+            pooled_emb = enc_out_2.pooler_output         # (1, 1280)
 
-    return final_embedding
+        all_prompt_embeds.append(prompt_emb)
+        all_pooled_embeds.append(pooled_emb)
+
+    # ------------ CONCATENATE CHUNKS ------------
+    final_prompt_embeds = torch.cat(all_prompt_embeds, dim=1)      # (1, long_seq, 2048)
+    final_pooled_embeds = torch.mean(torch.stack(all_pooled_embeds), dim=0)  # (1, 1280)
+
+    return final_prompt_embeds, final_pooled_embeds
+
 
 
 
@@ -220,12 +230,13 @@ class Prompt(BaseModel):
 @app.post("/generate_image")
 def generate_image_from_prompt(data: Prompt):
     print("Generating image for prompt:", data.prompt)
-    prompt_embeds = get_long_prompt_embeddings(pipe, data.prompt)
+    prompt_embeds, pooled_embeds = get_long_prompt_embeddings(pipe, data.prompt)
 
 
     result = pipe(
         # prompt=data.prompt,
         prompt_embeds=prompt_embeds,
+        pooled_prompt_embeds=pooled_embeds,
         negative_prompt="",
         num_inference_steps=28,
         guidance_scale=4,
