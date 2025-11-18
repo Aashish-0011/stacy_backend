@@ -253,7 +253,7 @@ def generate_image_from_prompt(data: Prompt):
         # prompt_embeds=prompt_embeds,
         # pooled_prompt_embeds=pooled_embeds,
         negative_prompt="",
-        num_inference_steps=28,
+        num_inference_steps=40,
         guidance_scale=4,
         width=832,
         height=1216,
