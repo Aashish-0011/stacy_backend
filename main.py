@@ -53,7 +53,8 @@ def get_long_prompt_embeddings(pipe, prompt: str):
 
             # encoder 2 → pooled_prompt_embeds
             enc_out_2 = text_encoder_2(chunk, output_hidden_states=True)
-            pooled_emb = enc_out_2.pooler_output         # (1, 1280)
+            last_hidden = enc_out_2.hidden_states[-2] 
+            pooled_emb = last_hidden.mean(dim=1)        # (1, 1280)
 
         all_prompt_embeds.append(prompt_emb)
         all_pooled_embeds.append(pooled_emb)
