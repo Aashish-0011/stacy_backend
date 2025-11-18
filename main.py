@@ -44,8 +44,7 @@ pipe.scheduler.algorithm_type = "dpmsolver++"   # DPM++
 pipe.scheduler.solver_order = 2                 # 2M
 pipe.scheduler.config.prediction_type = "v_prediction"   # SGM Uniform
 
-# Clip Skip for realism
-pipe.clip_skip = 2
+
 
 
 print("Model loaded successfully.")
