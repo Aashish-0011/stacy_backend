@@ -36,6 +36,12 @@ def get_long_prompt_embeddings(pipe, prompt: str):
     )
     input_ids = tokens.input_ids[0]
 
+    # Remove CLS/EOS so each chunk can add its own
+    if input_ids[0] == tokenizer.bos_token_id:
+        input_ids = input_ids[1:]
+    if input_ids[-1] == tokenizer.eos_token_id:
+        input_ids = input_ids[:-1]
+
     # ------------ SPLIT INTO 75-TOKEN CHUNKS ------------
     chunk_size = 75
     chunks = [input_ids[i:i + chunk_size] for i in range(0, len(input_ids), chunk_size)]
@@ -43,7 +49,15 @@ def get_long_prompt_embeddings(pipe, prompt: str):
     all_prompt_embeds = []
     all_pooled_embeds = []
 
-    for chunk in chunks:
+    for raw in chunks:
+        # chunk = chunk.unsqueeze(0).to(device)
+        # Re-add required tokens so chunk length is <= 77
+        chunk = torch.cat([
+            torch.tensor([tokenizer.bos_token_id]),
+            raw,
+            torch.tensor([tokenizer.eos_token_id])
+        ])
+
         chunk = chunk.unsqueeze(0).to(device)
 
         with torch.no_grad():
