@@ -122,7 +122,7 @@ print("Lora path:", lora_path)
 if lora_path and os.path.exists(lora_path):
     print("Applying LoRA from:", lora_path)
     pipe.load_lora_weights(lora_path)
-    pipe.fuse_lora(lora_scale=1.0)
+    pipe.fuse_lora(lora_scale=0.7)
     print("LoRA applied successfully.")
 else:
     print("⚠ LoRA NOT FOUND:", lora_path)
