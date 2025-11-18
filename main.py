@@ -245,13 +245,13 @@ class Prompt(BaseModel):
 @app.post("/generate_image")
 def generate_image_from_prompt(data: Prompt):
     print("Generating image for prompt:", data.prompt)
-    prompt_embeds, pooled_embeds = get_long_prompt_embeddings(pipe, data.prompt)
+    # prompt_embeds, pooled_embeds = get_long_prompt_embeddings(pipe, data.prompt)
 
 
     result = pipe(
-        # prompt=data.prompt,
-        prompt_embeds=prompt_embeds,
-        pooled_prompt_embeds=pooled_embeds,
+        prompt=data.prompt,
+        # prompt_embeds=prompt_embeds,
+        # pooled_prompt_embeds=pooled_embeds,
         negative_prompt="",
         num_inference_steps=28,
         guidance_scale=4,
