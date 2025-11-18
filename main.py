@@ -22,6 +22,8 @@ from fastapi.staticfiles import StaticFiles
 load_dotenv()
 # load Stable Diffusion model
 model_path = os.getenv("IMG_MODEL")
+lora_path = os.getenv("LORA_MODEL")
+
 print("Loading model from:", model_path)
 print('Gpu availale:', torch.cuda.is_available())
 
@@ -48,6 +50,17 @@ pipe.scheduler.config.prediction_type = "v_prediction"   # SGM Uniform
 
 
 print("Model loaded successfully.")
+
+print("Lora path:", lora_path)
+if lora_path and os.path.exists(lora_path):
+    print("Applying LoRA from:", lora_path)
+    pipe.load_lora_weights(lora_path)
+    pipe.fuse_lora(lora_scale=0.8)
+    print("LoRA applied successfully.")
+else:
+    print("⚠ LoRA NOT FOUND:", lora_path)
+
+print("Model + LoRA loaded successfully.")
 
 # Folder to store generated images
 os.makedirs("outputs", exist_ok=True)
