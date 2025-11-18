@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse
-from diffusers import StableDiffusionXLPipeline
+from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler
 import torch
 from io import BytesIO
 import requests
@@ -35,8 +35,19 @@ pipe = StableDiffusionXLPipeline.from_single_file(
 )
 
 pipe = pipe.to("cuda", torch_dtype=torch.float16)
-
 pipe.enable_xformers_memory_efficient_attention()
+
+# DPM++ SDE (2M) + Karras
+pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+pipe.scheduler.use_karras_sigmas = True
+pipe.scheduler.algorithm_type = "dpmsolver++"   # DPM++
+pipe.scheduler.solver_order = 2                 # 2M
+pipe.scheduler.config.prediction_type = "v_prediction"   # SGM Uniform
+
+# Clip Skip for realism
+pipe.clip_skip = 2
+
+
 print("Model loaded successfully.")
 
 # Folder to store generated images
@@ -164,8 +175,11 @@ def generate_image_from_prompt(data: Prompt):
     result = pipe(
         prompt=data.prompt,
         negative_prompt="",
-        num_inference_steps=30,
-        guidance_scale=5,
+        num_inference_steps=28,
+        guidance_scale=4,
+        width=832,
+        height=1216,
+        clip_skip=2
     )
     print("Image generated successfully.",result)
     img = result.images[0]
