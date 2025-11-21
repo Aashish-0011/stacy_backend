@@ -1,6 +1,6 @@
 # main.py
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from diffusers import StableDiffusionXLPipeline
 import torch
 from io import BytesIO
@@ -16,23 +16,28 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
-
+from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, download_images_list)
 
 
 load_dotenv()
-# load Stable Diffusion model
+
+# Load environment variables
 model_path = os.getenv("IMG_MODEL")
+COMFY_URL = os.getenv("COMFY_URL")
+
+
+# load Stable Diffusion model
 print("Loading model from:", model_path)
 print('Gpu availale:', torch.cuda.is_available())
 
-# pipe = StableDiffusionXLPipeline.from_single_file(
-#     model_path,
-#     torch_dtype=torch.float16,
-#     variant="fp16",             # <-- critical
-#     use_safetensors=True,
-#     local_files_only=True,
-#     low_cpu_mem_usage=True,     # <-- prevents double GPU allocation
-# )
+pipe = StableDiffusionXLPipeline.from_single_file(
+    model_path,
+    torch_dtype=torch.float16,
+    variant="fp16",             # <-- critical
+    use_safetensors=True,
+    local_files_only=True,
+    low_cpu_mem_usage=True,     # <-- prevents double GPU allocation
+)
 
 pipe = pipe.to("cuda", torch_dtype=torch.float16)
 
@@ -48,12 +53,10 @@ app = FastAPI()
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 
-COMFY_URL = "https://ykld4eaz5jxb8o-8188.proxy.runpod.net/"   # change to RunPod URL if remote
 
-# load workflow JSON
-def load_workflow(json_path: str="new_flow_deploy.json"):
-    with open(json_path, "r") as f:
-        return json.load(f)
+
+
+
     
 # # encode image to base64
 # def encode_image_to_base64(image_path: str):
@@ -61,12 +64,7 @@ def load_workflow(json_path: str="new_flow_deploy.json"):
 #         return base64.b64encode(img_file.read()).decode('utf-8')
     
 
-# #  update workflow with prompt and image
-def update_workflow(workflow: dict, prompt: str, image_path: str= None, node_index: int=35):
-    workflow[str(node_index)]["inputs"]["text"] = prompt    # Example node
-    # encoded_image = encode_image_to_base64(image_path)
-    # workflow["37"]["inputs"]["image"] = [ {"data": encoded_image} ]  # Example node
-    return workflow
+
 
 # def wait_for_completion(prompt_id: str):
 #     """Waits on WebSocket until ComfyUI reports the job is completed."""
@@ -184,38 +182,7 @@ def generate_image_from_prompt(data: Prompt):
         "image_base64": encoded   # base64 for immediate API use
     }
 
-def send_prompt(workflow_json, prompt_id):
-    """Send workflow JSON to ComfyUI"""
-    res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json, "client_id": prompt_id})
 
-    if res.status_code != 200:
-        raise HTTPException(500, "Failed to send prompt to ComfyUI")
-    return res.json()
-
-def get_history(prompt_id):
-    """Get finished job history"""
-    hist_url=f"{COMFY_URL}history/{prompt_id}"
-
-    print('hstory url', hist_url)
-    res = requests.get(hist_url)
-
-    print("res--->>",res)
-    if res.status_code != 200:
-        return None
-    return res.json()
-
-def download_image(filename, img_type):
-    """Download image file from ComfyUI output"""
-    url = f"{COMFY_URL}/view?filename={filename}&type={img_type}"
-    local_path = f"./outputs/{filename}"
-
-    os.makedirs("outputs", exist_ok=True)
-
-    res = requests.get(url)
-    with open(local_path, "wb") as f:
-        f.write(res.content)
-
-    return local_path
 
 # generate the image from the prompt
 @app.post("/generate_image_comfy")
@@ -224,10 +191,10 @@ def geneerate_image_comfy(data: Prompt):
     print("Generating image for prompt via ComfyUI:", data.prompt)
 
     #  load the workflow JSON
-    workflow = load_workflow("realisitic_img.json")
+    workflow = load_workflow("civit_ai_flow.json")
 
     # 2. Insert prompt into the workflow nodes
-    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, node_index=3)
+    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=10)
 
     # Unique ID for the request
     prompt_id = str(uuid.uuid4())
@@ -235,37 +202,49 @@ def geneerate_image_comfy(data: Prompt):
     # 3. Send workflow to ComfyUI
     res=send_prompt(workflow, prompt_id)
     response_id=res.get("prompt_id")
-    print('Prompt sent to ComfyUI with ID:', prompt_id)
     print('Response:', res)
     print('Response prompt_id:', response_id)
     
 
     # 2. Wait for image to be generated
-    while True:
+    max_retries = 60  # 2s x 60 = 120 seconds max wait
+
+    for _ in range(max_retries):
         time.sleep(2)
         history = get_history(response_id)
         print('history--->>,', history)
-        output=history.get(response_id,{}).get('outputs',{})
-        print('\n\noutput--????', output)
-        if output:
+        outputs =history.get(response_id,{}).get('outputs',{})
+        print('\n\noutput--????', outputs )
+        if outputs:
+            print("Received output from ComfyUI.")
             break
 
-    # 3. Extract filename
-    output_node = history.get(response_id,{}).get('outputs',{}).get('7',{}).get('images',{})
-    filename = output_node[0]["filename"]
-    img_type = output_node[0]["type"]
+    else:
+        return JSONResponse(
+            content={"error": "Timed out waiting for image generation."},
+            status_code=504
+        )
 
-    print("filename---->>",filename)
-    print("img_type---->>",img_type)
+    # 3. Extract filename frm node 13 and 23
+    # output_node13 = history.get(response_id,{}).get('outputs',{}).get('13',{}).get('images',{})
+    # output_node23 = history.get(response_id,{}).get('outputs',{}).get('23',{}).get('images',{})
+    node13_images = get_node_images(outputs, "13")
+    node23_images = get_node_images(outputs, "23")
+    print("Node 13 images:", node13_images)
+    print("Node 23 images:", node23_images)
 
-    # 4. Download the image file
-    file_path = download_image(filename, img_type)
-    print('file path--->>', file_path)
 
-    return FileResponse(file_path, media_type="image/png")
+    # Download images
+    downloaded_13 = download_images_list(node13_images)
+    downloaded_23 = download_images_list(node23_images)
+    print("Downloaded files node 13:", downloaded_13)
+    print("Downloaded files node 23:", downloaded_23)
 
+    final_files = downloaded_13 + downloaded_23
+    print("Final output:", final_files)
 
-    
+    return JSONResponse(content={'files': final_files}, status_code=200)
+
 
 
 
