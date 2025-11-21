@@ -50,7 +50,7 @@ def get_history(prompt_id):
 def download_image(filename, img_type):
     """Download image file from ComfyUI output"""
     url = f"{COMFY_URL}/view?filename={filename}&type={img_type}"
-    local_path = f"./outputs/{filename}"
+    local_path = f"outputs/{filename}"
 
     os.makedirs("outputs", exist_ok=True)
 
