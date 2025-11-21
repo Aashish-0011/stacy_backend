@@ -1,0 +1,257 @@
+{
+  "6": {
+    "inputs": {
+      "ckpt_name": "text_2_img.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "7": {
+    "inputs": {
+      "lora_name": "dmd2_semi_real_text_2_img_lora.safetensors",
+      "strength_model": 1,
+      "strength_clip": -2,
+      "model": [
+        "6",
+        0
+      ],
+      "clip": [
+        "6",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "10": {
+    "inputs": {
+      "text": "beautiful girl, nsfw, nude, (cumshot, missionary, indian, 1girl, uncensored, pov, from above:1.4), (masterpiece), best quality, highres, 4k, 8k, intricate detail, cinematic lighting, amazing quality, amazing shading, soft lighting, 35mm, analog style, a realistic photo, film grain, (photorealistic:0.6), taken by a canon eos r5,  high-resolution, High detail",
+      "clip": [
+        "7",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt) Positve"
+    }
+  },
+  "11": {
+    "inputs": {
+      "text": "censored, (worst quality, low quality:1.4), child, deformed, malformed, bad hands, bad fingers, bad eyes, bad teeth, long body, blurry, duplicated, cloned, duplicate body parts, disfigured, extra limbs, fused fingers, extra fingers, twisted, distorted, malformed hands, malformed fingers, mutated hands and fingers, conjoined, missing limbs, bad anatomy, bad proportions, logo, watermark, text, lowres, mutated, mutilated, blend, artifacts, gross, ugly, depth of field, asian, face defects), asymmetrical eyes, wonky eyes, unnatural eye shape, strange pupils, incorrect nose shape, distorted nose, deformed nose, bad mouth, bad lips, incorrect lip shape, teeth errors, asymmetrical face, poorly drawn face, face artifacts, oversharpen, oversaturated, low-defination",
+      "clip": [
+        "7",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt) negative"
+    }
+  },
+  "12": {
+    "inputs": {
+      "samples": [
+        "15",
+        0
+      ],
+      "vae": [
+        "6",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "13": {
+    "inputs": {
+      "images": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "15": {
+    "inputs": {
+      "seed": 621472235347996,
+      "steps": 10,
+      "cfg": 1,
+      "sampler_name": "lcm",
+      "scheduler": "exponential",
+      "denoise": 1,
+      "model": [
+        "7",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "11",
+        0
+      ],
+      "latent_image": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "16": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 4
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "17": {
+    "inputs": {
+      "filename_prefix": "",
+      "filename_keys": "6.ckpt_name, 16.width, 16.height, DMD2, 15.cfg, 15.sampler_name, 15.steps, 15.scheduler",
+      "foldername_prefix": "%F/",
+      "foldername_keys": "",
+      "delimiter": "-",
+      "save_job_data": "disabled",
+      "job_data_per_image": true,
+      "job_custom_text": "",
+      "save_metadata": true,
+      "counter_digits": 4,
+      "counter_position": "last",
+      "one_counter_per_folder": true,
+      "image_preview": false,
+      "output_ext": ".png",
+      "quality": 6,
+      "images": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "SaveImageExtended",
+    "_meta": {
+      "title": "💾 Save Image Extended"
+    }
+  },
+  "18": {
+    "inputs": {
+      "enabled": true,
+      "swap_model": "inswapper_128.onnx",
+      "facedetection": "retinaface_resnet50",
+      "face_restore_model": "GFPGANv1.4.pth",
+      "face_restore_visibility": 1,
+      "codeformer_weight": 0.5,
+      "detect_gender_input": "female",
+      "detect_gender_source": "female",
+      "input_faces_index": "0",
+      "source_faces_index": "0",
+      "console_log_level": 0,
+      "input_image": [
+        "12",
+        0
+      ],
+      "face_model": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "ReActorFaceSwap",
+    "_meta": {
+      "title": "ReActor 🌌 Fast Face Swap"
+    }
+  },
+  "19": {
+    "inputs": {
+      "face_model": "none"
+    },
+    "class_type": "ReActorLoadFaceModel",
+    "_meta": {
+      "title": "Load Face Model 🌌 ReActor"
+    }
+  },
+  "20": {
+    "inputs": {
+      "sharpen_radius": 1,
+      "sigma": 0.4,
+      "alpha": 0.4,
+      "image": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "ImageSharpen",
+    "_meta": {
+      "title": "Image Sharpen"
+    }
+  },
+  "22": {
+    "inputs": {
+      "filename_prefix": "",
+      "filename_keys": "6.ckpt_name, 16.width, 16.height, DMD2, 15.cfg, 15.sampler_name, 15.steps, 15.scheduler",
+      "foldername_prefix": "%F/",
+      "foldername_keys": "ReAct",
+      "delimiter": "-",
+      "save_job_data": "disabled",
+      "job_data_per_image": true,
+      "job_custom_text": "",
+      "save_metadata": true,
+      "counter_digits": 4,
+      "counter_position": "last",
+      "one_counter_per_folder": true,
+      "image_preview": false,
+      "output_ext": ".png",
+      "quality": 6,
+      "images": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "SaveImageExtended",
+    "_meta": {
+      "title": "💾 Save Image Extended"
+    }
+  },
+  "23": {
+    "inputs": {
+      "images": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "ReActor"
+    }
+  },
+  "24": {
+    "inputs": {
+      "sharpen_radius": 1,
+      "sigma": 0.4,
+      "alpha": 0.4,
+      "image": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "ImageSharpen",
+    "_meta": {
+      "title": "Image Sharpen"
+    }
+  }
+}
