@@ -1,7 +1,6 @@
 # main.py
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
-from diffusers import StableDiffusionXLPipeline
 import torch
 from io import BytesIO
 import requests
@@ -30,19 +29,6 @@ COMFY_URL = os.getenv("COMFY_URL")
 print("Loading model from:", model_path)
 print('Gpu availale:', torch.cuda.is_available())
 
-pipe = StableDiffusionXLPipeline.from_single_file(
-    model_path,
-    torch_dtype=torch.float16,
-    variant="fp16",             # <-- critical
-    use_safetensors=True,
-    local_files_only=True,
-    low_cpu_mem_usage=True,     # <-- prevents double GPU allocation
-)
-
-pipe = pipe.to("cuda", torch_dtype=torch.float16)
-
-pipe.enable_xformers_memory_efficient_attention()
-print("Model loaded successfully.")
 
 # Folder to store generated images
 os.makedirs("outputs", exist_ok=True)
@@ -152,61 +138,95 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 class Prompt(BaseModel):
     prompt: str
 
-# generate the image from the prompt
-@app.post("/generate_image")
-def generate_image_from_prompt(data: Prompt):
-    print("Generating image for prompt:", data.prompt)
-
-
-    result = pipe(
-        prompt=data.prompt,
-        negative_prompt="",
-        num_inference_steps=30,
-        guidance_scale=5,
-    )
-    print("Image generated successfully.",result)
-    img = result.images[0]
-
-    # Save image for future access
-    filename = f"{uuid.uuid4().hex}.png"
-    filepath = os.path.join("outputs", filename)
-    img.save(filepath)
-
-    # convert to base64 for API response
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-    return {
-        "saved_path": filepath,   # where the image is stored
-        "image_base64": encoded   # base64 for immediate API use
-    }
-
-
 
 # generate the image from the prompt
-@app.post("/generate_image_comfy")
-def geneerate_image_comfy(data: Prompt):
-    print("Endpoint /generate_image_comfy called.")
-    print("Generating image for prompt via ComfyUI:", data.prompt)
+# @app.post("/generate_image_comfy")
+# def geneerate_image_comfy(data: Prompt):
+#     print("Endpoint /generate_image_comfy called.")
+#     print("Generating image for prompt via ComfyUI:", data.prompt)
+
+#     #  load the workflow JSON
+#     workflow = load_workflow("civit_ai_flow.json")
+
+#     # 2. Insert prompt into the workflow nodes
+#     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=10)
+
+#     # Unique ID for the request
+#     prompt_id = str(uuid.uuid4())
+
+#     # 3. Send workflow to ComfyUI
+#     res=send_prompt(workflow, prompt_id)
+#     response_id=res.get("prompt_id")
+#     print('Response:', res)
+#     print('Response prompt_id:', response_id)
+    
+
+#     # 2. Wait for image to be generated
+#     max_retries = 60  # 2s x 60 = 120 seconds max wait
+
+#     for _ in range(max_retries):
+#         time.sleep(2)
+#         history = get_history(response_id)
+#         print('history--->>,', history)
+#         outputs =history.get(response_id,{}).get('outputs',{})
+#         print('\n\noutput--????', outputs )
+#         if outputs:
+#             print("Received output from ComfyUI.")
+#             break
+
+#     else:
+#         return JSONResponse(
+#             content={"error": "Timed out waiting for image generation."},
+#             status_code=504
+#         )
+
+#     # 3. Extract filename frm node 13 and 23
+#     # output_node13 = history.get(response_id,{}).get('outputs',{}).get('13',{}).get('images',{})
+#     # output_node23 = history.get(response_id,{}).get('outputs',{}).get('23',{}).get('images',{})
+#     node13_images = get_node_images(outputs, "13")
+#     node23_images = get_node_images(outputs, "23")
+#     print("Node 13 images:", node13_images)
+#     print("Node 23 images:", node23_images)
+
+
+#     # Download images
+#     downloaded_13 = download_images_list(node13_images)
+#     downloaded_23 = download_images_list(node23_images)
+#     print("Downloaded files node 13:", downloaded_13)
+#     print("Downloaded files node 23:", downloaded_23)
+
+#     final_files = downloaded_13 + downloaded_23
+#     print("Final output:", final_files)
+
+#     return JSONResponse(content={'files': final_files}, status_code=200)
+
+
+#  api to genrate image with comfy
+@app.post("/api/generate_image")
+def generate_image_with_comfy(data: Prompt):
+
+
+    #  workflow for semi-realistic image
+    workflow_file = "t2i_semi_realistic2.json"
+    prompt_node_index = 3
+
 
     #  load the workflow JSON
-    workflow = load_workflow("civit_ai_flow.json")
+    workflow = load_workflow(workflow_file)
 
-    # 2. Insert prompt into the workflow nodes
-    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=10)
+    #  update the prompt node in the workflow
+    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
 
     # Unique ID for the request
     prompt_id = str(uuid.uuid4())
 
-    # 3. Send workflow to ComfyUI
+    #  Send workflow to ComfyUI
     res=send_prompt(workflow, prompt_id)
+
     response_id=res.get("prompt_id")
     print('Response:', res)
     print('Response prompt_id:', response_id)
-    
-
-    # 2. Wait for image to be generated
+    #  Wait for image to be generated
     max_retries = 60  # 2s x 60 = 120 seconds max wait
 
     for _ in range(max_retries):
@@ -223,27 +243,31 @@ def geneerate_image_comfy(data: Prompt):
         return JSONResponse(
             content={"error": "Timed out waiting for image generation."},
             status_code=504
-        )
+        ) 
 
-    # 3. Extract filename frm node 13 and 23
-    # output_node13 = history.get(response_id,{}).get('outputs',{}).get('13',{}).get('images',{})
-    # output_node23 = history.get(response_id,{}).get('outputs',{}).get('23',{}).get('images',{})
-    node13_images = get_node_images(outputs, "13")
-    node23_images = get_node_images(outputs, "23")
-    print("Node 13 images:", node13_images)
-    print("Node 23 images:", node23_images)
+    # get the number of output nodes
+    outputs_nodes= outputs.keys()
 
+    print("Output nodes:", outputs_nodes)
+    
+    #  get the image list from the output nodes
+    final_files=[]
+    for node_id in outputs_nodes:
+        print(f"Processing output node: {node_id}")
+        image_list = get_node_images(outputs, node_id)
+        print(f"Image list for node {node_id}:", image_list)
 
-    # Download images
-    downloaded_13 = download_images_list(node13_images)
-    downloaded_23 = download_images_list(node23_images)
-    print("Downloaded files node 13:", downloaded_13)
-    print("Downloaded files node 23:", downloaded_23)
+        # download the images
+        downloaded_files = download_images_list(image_list) 
 
-    final_files = downloaded_13 + downloaded_23
+        print(f"Downloaded files for node {node_id}:", downloaded_files)
+        final_files.extend(downloaded_files)
+
+    # final_files = downloaded_13 + downloaded_23
     print("Final output:", final_files)
 
     return JSONResponse(content={'files': final_files}, status_code=200)
+     
 
 
 
