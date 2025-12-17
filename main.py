@@ -137,6 +137,7 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 class Prompt(BaseModel):
     prompt: str
+    img_type: str = "realistic"  # default type is 'realistic'
 
 
 # generate the image from the prompt
@@ -206,9 +207,24 @@ class Prompt(BaseModel):
 def generate_image_with_comfy(data: Prompt):
 
 
-    #  workflow for semi-realistic image
-    workflow_file = "t2i_semi_realistic2.json"
-    prompt_node_index = 3
+    img_type = data.img_type
+    print("Generating  image for:", img_type)
+
+
+    if img_type == "semi_realistic":
+        #   workflow for semi-realistic image
+        workflow_file = "t2i_semi_realistic2.json"
+        prompt_node_index = "3"
+    else:
+        # workflow for t2i_ultra_realistic2
+        workflow_file = "t2i_ultra_realistic2.json"
+        prompt_node_index = "3"
+    
+
+
+
+    print('generating image with comfyui workflow:', workflow_file)
+
 
 
     #  load the workflow JSON
