@@ -22,12 +22,15 @@ def load_workflow(json_path: str = "new_flow_deploy.json"):
     
 # #  update workflow with prompt and image
 def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_node_index: int=35):
+    print("Updating workflow with prompt:", prompt_node_index)
+    print("Workflow keys:", workflow[str(prompt_node_index)]["inputs"])
     workflow[str(prompt_node_index)]["inputs"]["text"] = prompt
     return workflow
 
 def send_prompt(workflow_json, prompt_id):
     """Send workflow JSON to ComfyUI"""
-    res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json, "client_id": prompt_id})
+    # res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json, "client_id": prompt_id})
+    res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json})
 
     if res.status_code != 200:
         return None
@@ -47,10 +50,20 @@ def get_history(prompt_id):
 
 
 # single image to downlaod
-def download_image(filename, img_type):
+def download_image_video(filename, img_type, subfolder=None, format=None, frame_rate=None):
     """Download image file from ComfyUI output"""
     url = f"{COMFY_URL}/view?filename={filename}&type={img_type}"
     local_path = f"outputs/{filename}"
+
+    if subfolder:
+        url += f"&subfolder={subfolder}"
+    if format:
+        url += f"&format={format}"
+    if frame_rate:
+        url += f"&frame_rate={frame_rate}"
+    
+    print("Download URL:", url)
+
 
     os.makedirs("outputs", exist_ok=True)
 
@@ -67,11 +80,15 @@ def download_images_list(image_list):
     for img in image_list:
         filename = img["filename"]
         img_type = img["type"]
+        subfolder = img.get("subfolder") 
+        format = img.get("format")
+        frame_rate = img.get("frame_rate")
+
         print("Downloading filename:", filename)
         print("Image type:", img_type)
 
         #  function to download image
-        local_path = download_image(filename, img_type)
+        local_path = download_image_video(filename, img_type, subfolder, format, frame_rate)
         downloaded_files.append(local_path)
     return downloaded_files
 
@@ -79,4 +96,11 @@ def get_node_images(history_data, node_id: str):
         return (
             history_data.get(node_id, {})
                        .get("images", {})
+        )
+
+#  get node videos
+def get_node_videos(history_data, node_id: str):
+        return (
+            history_data.get(node_id, {})
+                       .get("gifs", {})
         )

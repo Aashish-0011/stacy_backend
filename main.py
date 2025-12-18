@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
-from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, download_images_list)
+from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list)
 
 
 load_dotenv()
@@ -219,13 +219,8 @@ def generate_image_with_comfy(data: Prompt):
         # workflow for t2i_ultra_realistic2
         workflow_file = "t2i_ultra_realistic2.json"
         prompt_node_index = "3"
-    
-
-
-
+  
     print('generating image with comfyui workflow:', workflow_file)
-
-
 
     #  load the workflow JSON
     workflow = load_workflow(workflow_file)
@@ -283,13 +278,115 @@ def generate_image_with_comfy(data: Prompt):
     print("Final output:", final_files)
 
     return JSONResponse(content={'files': final_files}, status_code=200)
-     
+
+#  api to generate video  with comfy
+@app.post("/api/generate_text_video")
+def generate_text_video_with_comfy(data: Prompt):
+    video_style= data.img_type
+    print("Generating video with style:", video_style)
+
+    #   workflow for semi-realistic image
+    workflow_file = "t2v_cartoon_style.json"
+    prompt_node_index = "123"
+
+    print('generating video with comfyui workflow:', workflow_file)
+
+    #  load the workflow JSON
+    workflow=load_workflow(workflow_file)
+
+    # update the prompt node in the workflow
+    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
+
+    # Unique ID for the request
+    prompt_id = str(uuid.uuid4())   
+    #  Send workflow to ComfyUI
+    res=send_prompt(workflow, prompt_id)
+
+    response_id=res.get("prompt_id")
+    print('Response:', res)
+    print('Response prompt_id:', response_id)
+    #  Wait for image to be generated
+    max_retries = 60  # 2s x 60 = 120 seconds max wait
+
+    for _ in range(max_retries):
+        time.sleep(2)
+        history = get_history(response_id)
+        print('history--->>,', history)
+        outputs =history.get(response_id,{}).get('outputs',{})
+        print('\n\noutput--????', outputs )
+        if outputs:
+            print("Received output from ComfyUI.")
+            break
+
+    else:
+        return JSONResponse(
+            content={"error": "Timed out waiting for image generation."},
+            status_code=504
+        ) 
+
+    # get the number of output nodes
+    outputs_nodes= outputs.keys()
+
+    print("Output nodes:", outputs_nodes)
+    
+    #  get the image list from the output nodes
+    final_files=[]
+    for node_id in outputs_nodes:
+        print(f"Processing output node: {node_id}")
+        image_list = get_node_videos(outputs, node_id)
+        print(f"Image list for node {node_id}:", image_list)
+
+        # download the images
+        downloaded_files = download_images_list(image_list) 
+
+        print(f"Downloaded files for node {node_id}:", downloaded_files)
+        final_files.extend(downloaded_files)
+
+    # final_files = downloaded_13 + downloaded_23
+    print("Final output:", final_files)
+
+    return JSONResponse(content={'files': final_files}, status_code=200)
 
 
 
+# if __name__ == "__main__":
 
+#     #  download the history from comfyui
+#     # cortoon type
+#     # url="https://lq2907idlvwrna-8188.proxy.runpod.net/history/963e783c-6c33-4384-85c3-ef95513c0f44"
+#     # response_id = "963e783c-6c33-4384-85c3-ef95513c0f44"
+#     # response_id = "dd5e427f-a355-4f22-9de5-702ca6b48d1a"
+#     # img
+#     # response_id = "02ea8aab-84ed-40ae-8f5e-3c4a5d01686b"
 
+#     # video
+#     # response_id="c455821d-ac72-425c-8a74-eb6fef27d443"
+#     response_id="5bcff9a8-b069-4449-963c-5040dba2d7c5"
+#     history = get_history(response_id)
+#     print('history--->>,', history)
+#     outputs =history.get(response_id,{}).get('outputs',{})
+#     print('\n\noutput--????', outputs )
 
-    # implement later
+#      # get the number of output nodes
+#     outputs_nodes= outputs.keys()
+
+#     print("Output nodes:", outputs_nodes)
+    
+#     #  get the image list from the output nodes
+#     final_files=[]
+#     for node_id in outputs_nodes:
+#         print(f"Processing output node: {node_id}")
+#         image_list = get_node_videos(outputs, node_id)
+#         # image_list = get_node_images(outputs, node_id)
+#         print(f"Image list for node {node_id}:", image_list)
+
+#         # download the images
+#         downloaded_files = download_images_list(image_list) 
+
+#         print(f"Downloaded files for node {node_id}:", downloaded_files)
+#         final_files.extend(downloaded_files)
+
+#     # final_files = downloaded_13 + downloaded_23
+#     print("Final output:", final_files)
 
 
