@@ -285,9 +285,15 @@ def generate_text_video_with_comfy(data: Prompt):
     video_style= data.img_type
     print("Generating video with style:", video_style)
 
-    #   workflow for semi-realistic image
-    workflow_file = "t2v_cartoon_style.json"
-    prompt_node_index = "123"
+    if video_style == "cartoon":
+
+        #   workflow for semi-realistic image
+        workflow_file = "t2v_cartoon_style.json"
+        prompt_node_index = "123"
+    else:
+        # workflow for t2i_ultra_realistic2
+        workflow_file = "wan22_smooth_workflow_t2v.json"
+        prompt_node_index = "123"
 
     print('generating video with comfyui workflow:', workflow_file)
 
@@ -361,7 +367,10 @@ def generate_text_video_with_comfy(data: Prompt):
 
 #     # video
 #     # response_id="c455821d-ac72-425c-8a74-eb6fef27d443"
-#     response_id="5bcff9a8-b069-4449-963c-5040dba2d7c5"
+#     # response_id="5bcff9a8-b069-4449-963c-5040dba2d7c5"
+
+#     # normal
+#     response_id='9d66c8d6-9472-4d82-a420-810b6aba1d0b'
 #     history = get_history(response_id)
 #     print('history--->>,', history)
 #     outputs =history.get(response_id,{}).get('outputs',{})

@@ -17,7 +17,7 @@ print("ComfyUI URL:", COMFY_URL)
 # ------------------------------
 def load_workflow(json_path: str = "new_flow_deploy.json"):
     """Load workflow JSON file."""
-    with open(json_path, "r") as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         return json.load(f)
     
 # #  update workflow with prompt and image
