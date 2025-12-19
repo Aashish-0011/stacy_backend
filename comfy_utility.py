@@ -21,10 +21,24 @@ def load_workflow(json_path: str = "new_flow_deploy.json"):
         return json.load(f)
     
 # #  update workflow with prompt and image
-def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_node_index: int=35):
+def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_node_index: int=35, image_node_index: int=None, I2V=False):
+    """Update workflow JSON with prompt and optional image."""
     print("Updating workflow with prompt:", prompt_node_index)
     print("Workflow keys:", workflow[str(prompt_node_index)]["inputs"])
-    workflow[str(prompt_node_index)]["inputs"]["text"] = prompt
+    if I2V:
+        # for I2V
+        workflow[str(prompt_node_index)]["inputs"]["value"] = prompt
+
+    else:
+        # for  t2v or t2i
+        workflow[str(prompt_node_index)]["inputs"]["text"] = prompt
+
+    if image_path:
+         
+         workflow[str(image_node_index)]["inputs"]["image"] = image_path
+         print("Updating workflow with image:", image_node_index)
+         
+
     return workflow
 
 def send_prompt(workflow_json, prompt_id):
@@ -104,3 +118,28 @@ def get_node_videos(history_data, node_id: str):
             history_data.get(node_id, {})
                        .get("gifs", {})
         )
+
+# upload image to the comfy
+def upload_image_to_comfy(image_path: str):
+    """Upload image to ComfyUI server."""
+    url = f"{COMFY_URL}/upload/image"
+
+    print("Uploading image to URL:", url)
+    print("Image path:", image_path)
+
+    filename = os.path.basename(image_path)
+    print("\n\nFilename:", filename)
+    with open(image_path, "rb") as f:
+        files = {
+            "image": (filename, f, "image/jpeg")
+        }
+        res = requests.post(url, files=files)
+
+
+
+    if res.status_code != 200:
+        return None
+    
+    print("Upload response:", res.json())
+    uploaded_file = res.json().get("name")
+    return uploaded_file
