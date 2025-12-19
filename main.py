@@ -16,7 +16,9 @@ from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
 from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy)
-
+from tasks import generate_task
+from celery.result import AsyncResult
+from celery_app import celery_app  # import your configured Celery app
 
 load_dotenv()
 
@@ -140,47 +142,13 @@ def generate_image_with_comfy(data: Prompt):
     response_id=res.get("prompt_id")
     print('Response:', res)
     print('Response prompt_id:', response_id)
-    #  Wait for image to be generated
-    max_retries = 60  # 2s x 60 = 120 seconds max wait
 
-    for _ in range(max_retries):
-        time.sleep(2)
-        history = get_history(response_id)
-        print('history--->>,', history)
-        outputs =history.get(response_id,{}).get('outputs',{})
-        print('\n\noutput--????', outputs )
-        if outputs:
-            print("Received output from ComfyUI.")
-            break
-
-    else:
-        return JSONResponse(
-            content={"error": "Timed out waiting for image generation."},
-            status_code=504
-        ) 
-
-    # get the number of output nodes
-    outputs_nodes= outputs.keys()
-
-    print("Output nodes:", outputs_nodes)
+    # start the celery task to fetch the images
+    task = generate_task.delay(response_id=response_id, video=False)
     
-    #  get the image list from the output nodes
-    final_files=[]
-    for node_id in outputs_nodes:
-        print(f"Processing output node: {node_id}")
-        image_list = get_node_images(outputs, node_id)
-        print(f"Image list for node {node_id}:", image_list)
+    return JSONResponse(
+        content={"task_id": task.id, "response_id": response_id, "message": "Image generation initiated."},status_code=202)
 
-        # download the images
-        downloaded_files = download_images_list(image_list) 
-
-        print(f"Downloaded files for node {node_id}:", downloaded_files)
-        final_files.extend(downloaded_files)
-
-    # final_files = downloaded_13 + downloaded_23
-    print("Final output:", final_files)
-
-    return JSONResponse(content={'files': final_files}, status_code=200)
 
 #  api to generate video  with comfy
 @app.post("/api/generate_text_video")
@@ -213,47 +181,12 @@ def generate_text_video_with_comfy(data: Prompt):
     response_id=res.get("prompt_id")
     print('Response:', res)
     print('Response prompt_id:', response_id)
-    #  Wait for image to be generated
-    max_retries = 60  # 2s x 60 = 120 seconds max wait
 
-    for _ in range(max_retries):
-        time.sleep(2)
-        history = get_history(response_id)
-        print('history--->>,', history)
-        outputs =history.get(response_id,{}).get('outputs',{})
-        print('\n\noutput--????', outputs )
-        if outputs:
-            print("Received output from ComfyUI.")
-            break
-
-    else:
-        return JSONResponse(
-            content={"error": "Timed out waiting for image generation."},
-            status_code=504
-        ) 
-
-    # get the number of output nodes
-    outputs_nodes= outputs.keys()
-
-    print("Output nodes:", outputs_nodes)
+    # start the celery task to fetch the images
+    task = generate_task.delay(response_id=response_id, video=True)
     
-    #  get the image list from the output nodes
-    final_files=[]
-    for node_id in outputs_nodes:
-        print(f"Processing output node: {node_id}")
-        image_list = get_node_videos(outputs, node_id)
-        print(f"Image list for node {node_id}:", image_list)
-
-        # download the images
-        downloaded_files = download_images_list(image_list) 
-
-        print(f"Downloaded files for node {node_id}:", downloaded_files)
-        final_files.extend(downloaded_files)
-
-    # final_files = downloaded_13 + downloaded_23
-    print("Final output:", final_files)
-
-    return JSONResponse(content={'files': final_files}, status_code=200)
+    return JSONResponse(
+        content={"task_id": task.id, "response_id": response_id, "message": "Video generation initiated."},status_code=202)
 
 
 # api to generate video from image
@@ -298,7 +231,26 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     response_id=res.get("prompt_id")
     print('Response:', res)
     print('Response prompt_id:', response_id)
-    return JSONResponse(content={'message': 'Video generation initiated.'}, status_code=200)
+
+    # start the celery task to fetch the images
+    task = generate_task.delay(response_id=response_id, video=True)
+    
+    return JSONResponse(
+        content={"task_id": task.id, "response_id": response_id, "message": "Video generation initiated."},status_code=202)
+
+
+@app.get("/api/task_status/{task_id}")
+def task_status(task_id: str):
+    task = AsyncResult(task_id, app=celery_app) 
+
+    if task.state in ("PENDING", "STARTED"):
+        return {"status": "processing"}
+
+    if task.state == "SUCCESS":
+        return task.result
+
+    if task.state == "FAILURE":
+        return {"status": "failed", "error": str(task.result)}
 
 
 
