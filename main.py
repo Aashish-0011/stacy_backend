@@ -21,13 +21,24 @@ from celery.result import AsyncResult
 from celery_app import celery_app  # import your configured Celery app
 import db_operations
 from database import SessionLocal
+from run_pod_utility import get_running_pod
 db=SessionLocal()
 
 load_dotenv()
 
-# Load environment variables
+# Load environment variable
 model_path = os.getenv("IMG_MODEL")
-COMFY_URL = os.getenv("COMFY_URL")
+# COMFY_URL = os.getenv("COMFY_URL")
+
+RUNPOD_ID=get_running_pod()
+
+
+print('RUNPOD_ID--->>>',RUNPOD_ID)
+
+COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+
+print('COMFY_URL--->>>',COMFY_URL)
+
 
 
 # load Stable Diffusion model
@@ -54,6 +65,11 @@ class Prompt(BaseModel):
 #  api to genrate image with comfy
 @app.post("/api/generate_image")
 def generate_image_with_comfy(data: Prompt):
+
+    #  check runpod is availabe or not
+    if not RUNPOD_ID:
+        return JSONResponse(content={"error": "RUNPOD_ID is not available."}, status_code=400)
+
 
 
     img_type = data.img_type
@@ -82,7 +98,7 @@ def generate_image_with_comfy(data: Prompt):
     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
 
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow)
+    res=send_prompt(workflow, COMFY_URL)
 
     if not res:
         return JSONResponse(content={"error": "Failed to  generate image please try again later."}, status_code=500)
@@ -112,6 +128,11 @@ def generate_image_with_comfy(data: Prompt):
 #  api to generate video  with comfy
 @app.post("/api/generate_text_video")
 def generate_text_video_with_comfy(data: Prompt):
+    
+    #  check runpod is availabe or not
+    if not RUNPOD_ID:
+        return JSONResponse(content={"error": "RUNPOD_ID is not available."}, status_code=400)
+    
     video_style= data.img_type
     user_id = data.user_id
     print("Generating  video for:", video_style, "User ID:", user_id)
@@ -137,7 +158,7 @@ def generate_text_video_with_comfy(data: Prompt):
     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
  
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow)
+    res=send_prompt(workflow, COMFY_URL)
 
     if not res:
         return JSONResponse(content={"error": "Failed to  generate video please try again later."}, status_code=500)
@@ -168,6 +189,10 @@ def generate_text_video_with_comfy(data: Prompt):
 # api to generate video from image
 @app.post("/api/generate_image_video")
 def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None)):
+
+    #  check runpod is availabe or not
+    if not RUNPOD_ID:
+        return JSONResponse(content={"error": "RUNPOD_ID is not available."}, status_code=400)
 
     if not user_id:
         return JSONResponse(content={"error": "user_id is required."}, status_code=400)
@@ -203,7 +228,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     print('\n\n=*80\n\n')
 
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow)
+    res=send_prompt(workflow, COMFY_URL)
 
     if not res:
         return JSONResponse(content={"error": "Failed to  generate video please try again later."}, status_code=500)
@@ -233,6 +258,20 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     
     return JSONResponse(
         content={"task_id": task.id, "response_id": response_id, "message": "Video generation initiated."},status_code=202)
+
+
+#api to update hte run pod  id
+@app.post("/api/update_runpod_id")
+def update_runpod_id():
+    global RUNPOD_ID, COMFY_URL
+    RUNPOD_ID = get_running_pod()
+    COMFY_URL = f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+    if RUNPOD_ID:
+        print("Updated RUNPOD_ID:", RUNPOD_ID)
+        print("Updated COMFY_URL:", COMFY_URL)
+        return JSONResponse(content={"RUNPOD_ID": RUNPOD_ID, "COMFY_URL": COMFY_URL}, status_code=200)
+    
+    return JSONResponse(content={"error": "Failed to update RUNPOD_ID."}, status_code=500)
 
 
 @app.get("/api/task_status/{task_id}")
