@@ -5,3 +5,6 @@ inputs/
 .env
 outputs
 temp*
+versions
+
+
