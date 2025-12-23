@@ -6,10 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Load environment variables
-COMFY_URL = os.getenv("COMFY_URL").rstrip("/")
-
-print("ComfyUI URL:", COMFY_URL)
 
 
 # ------------------------------
@@ -41,7 +37,7 @@ def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_n
 
     return workflow
 
-def send_prompt(workflow_json):
+def send_prompt(workflow_json, COMFY_URL):
     """Send workflow JSON to ComfyUI"""
     res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json})
 
@@ -49,7 +45,7 @@ def send_prompt(workflow_json):
         return None
     return res.json()
 
-def get_history(prompt_id):
+def get_history(prompt_id, COMFY_URL):
     """Get finished job history"""
     url =f"{COMFY_URL}/history/{prompt_id}"
 
@@ -63,7 +59,7 @@ def get_history(prompt_id):
 
 
 # single image to downlaod
-def download_image_video(filename, img_type, subfolder=None, format=None, frame_rate=None):
+def download_image_video(filename, img_type, COMFY_URL, subfolder=None, format=None, frame_rate=None):
     """Download image file from ComfyUI output"""
     url = f"{COMFY_URL}/view?filename={filename}&type={img_type}"
     local_path = f"outputs/{filename}"
@@ -88,7 +84,7 @@ def download_image_video(filename, img_type, subfolder=None, format=None, frame_
 
 
 #  list of the images in the node
-def download_images_list(image_list):
+def download_images_list(image_list, COMFY_URL):
     downloaded_files = []
     for img in image_list:
         filename = img["filename"]
@@ -101,7 +97,7 @@ def download_images_list(image_list):
         print("Image type:", img_type)
 
         #  function to download image
-        local_path = download_image_video(filename, img_type, subfolder, format, frame_rate)
+        local_path = download_image_video(filename, img_type,COMFY_URL, subfolder, format, frame_rate)
         downloaded_files.append(local_path)
     return downloaded_files
 
