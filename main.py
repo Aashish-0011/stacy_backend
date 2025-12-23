@@ -1,7 +1,6 @@
 # main.py
 from fastapi import Depends, FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import FileResponse, JSONResponse
-import torch
 from io import BytesIO
 import requests
 import time
@@ -47,7 +46,6 @@ print('COMFY_URL--->>>',COMFY_URL)
 
 # load Stable Diffusion model
 print("Loading model from:", model_path)
-print('Gpu availale:', torch.cuda.is_available())
 
 
 # Folder to store generated images
