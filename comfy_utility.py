@@ -41,9 +41,8 @@ def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_n
 
     return workflow
 
-def send_prompt(workflow_json, prompt_id):
+def send_prompt(workflow_json):
     """Send workflow JSON to ComfyUI"""
-    # res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json, "client_id": prompt_id})
     res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json})
 
     if res.status_code != 200:
