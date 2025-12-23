@@ -1,15 +1,9 @@
 # main.py
 from fastapi import Depends, FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import FileResponse, JSONResponse
-from io import BytesIO
-import requests
-import time
 import uuid
 import os
-import json
-import base64
 import shutil
-# import websocket
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
