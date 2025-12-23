@@ -1,5 +1,5 @@
 # main.py
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import Depends, FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import FileResponse, JSONResponse
 import torch
 from io import BytesIO
@@ -16,12 +16,16 @@ from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
 from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy)
+from deps import get_db
 from tasks import generate_task
 from celery.result import AsyncResult
 from celery_app import celery_app  # import your configured Celery app
 import db_operations
 from database import SessionLocal
 from run_pod_utility import get_running_pod
+from sqlalchemy.orm import Session
+from deps import get_db
+
 db=SessionLocal()
 
 load_dotenv()
@@ -258,6 +262,81 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     
     return JSONResponse(
         content={"task_id": task.id, "response_id": response_id, "message": "Video generation initiated."},status_code=202)
+
+# get all user promt
+@app.get("/api/prompts/{user_id}")
+def get_user_prompts_api(
+    user_id: str,
+    db: Session = Depends(get_db),
+):
+    tasks = db_operations.get_user_prompts(db, user_id)
+
+    data = [
+        {
+            "prompt_id": t.prompt_id,
+            "task_type": t.task_type,
+            "input_prompt": t.input_prompt,
+            "input_image_url": t.input_image_url,
+            "generation_style": t.generation_style,
+            "status": t.status,
+            "created_at": str(t.created_at),
+            "updated_at": str(t.updated_at),
+        }
+        for t in tasks
+    ]
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "count": len(data),
+            "data": data,
+        },
+    )
+
+
+#get all promt response
+@app.get("/api/prompts/{prompt_id}/response")
+def get_prompt_response_api(
+    prompt_id: str,
+    db: Session = Depends(get_db),
+):
+    task = db_operations.get_task_with_files(db, prompt_id)
+
+    if not task:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "message": "Prompt not found",
+            },
+        )
+
+    files = [
+        {
+            "file_url": f.file_url,
+            "file_type": f.file_type,
+            "file_name": f.file_name,
+            "file_size_bytes": f.file_size_bytes,
+            "width": f.width,
+            "height": f.height,
+            "duration_seconds": f.duration_seconds,
+            "format": f.format,
+            "created_at": str(f.created_at),
+        }
+        for f in task.generated_files
+    ]
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "prompt_id": task.prompt_id,
+            "task_type": task.task_type,
+            "status": task.status,
+            "files": files,
+        },
+    )
 
 
 #api to update hte run pod  id
