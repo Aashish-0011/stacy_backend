@@ -19,6 +19,9 @@ from comfy_utility import (load_workflow, update_workflow, send_prompt, get_hist
 from tasks import generate_task
 from celery.result import AsyncResult
 from celery_app import celery_app  # import your configured Celery app
+import db_operations
+from database import SessionLocal
+db=SessionLocal()
 
 load_dotenv()
 
@@ -39,72 +42,13 @@ os.makedirs("outputs", exist_ok=True)
 app = FastAPI()
 # Expose static image folder publicly
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+app.mount("/inputs", StaticFiles(directory="inputs"), name="inputs")
 
 class Prompt(BaseModel):
     prompt: str
     img_type: str = "realistic"  # default type is 'realistic'
+    user_id: str = None
 
-
-# generate the image from the prompt
-# @app.post("/generate_image_comfy")
-# def geneerate_image_comfy(data: Prompt):
-#     print("Endpoint /generate_image_comfy called.")
-#     print("Generating image for prompt via ComfyUI:", data.prompt)
-
-#     #  load the workflow JSON
-#     workflow = load_workflow("civit_ai_flow.json")
-
-#     # 2. Insert prompt into the workflow nodes
-#     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=10)
-
-#     # Unique ID for the request
-#     prompt_id = str(uuid.uuid4())
-
-#     # 3. Send workflow to ComfyUI
-#     res=send_prompt(workflow, prompt_id)
-#     response_id=res.get("prompt_id")
-#     print('Response:', res)
-#     print('Response prompt_id:', response_id)
-    
-
-#     # 2. Wait for image to be generated
-#     max_retries = 60  # 2s x 60 = 120 seconds max wait
-
-#     for _ in range(max_retries):
-#         time.sleep(2)
-#         history = get_history(response_id)
-#         print('history--->>,', history)
-#         outputs =history.get(response_id,{}).get('outputs',{})
-#         print('\n\noutput--????', outputs )
-#         if outputs:
-#             print("Received output from ComfyUI.")
-#             break
-
-#     else:
-#         return JSONResponse(
-#             content={"error": "Timed out waiting for image generation."},
-#             status_code=504
-#         )
-
-#     # 3. Extract filename frm node 13 and 23
-#     # output_node13 = history.get(response_id,{}).get('outputs',{}).get('13',{}).get('images',{})
-#     # output_node23 = history.get(response_id,{}).get('outputs',{}).get('23',{}).get('images',{})
-#     node13_images = get_node_images(outputs, "13")
-#     node23_images = get_node_images(outputs, "23")
-#     print("Node 13 images:", node13_images)
-#     print("Node 23 images:", node23_images)
-
-
-#     # Download images
-#     downloaded_13 = download_images_list(node13_images)
-#     downloaded_23 = download_images_list(node23_images)
-#     print("Downloaded files node 13:", downloaded_13)
-#     print("Downloaded files node 23:", downloaded_23)
-
-#     final_files = downloaded_13 + downloaded_23
-#     print("Final output:", final_files)
-
-#     return JSONResponse(content={'files': final_files}, status_code=200)
 
 
 #  api to genrate image with comfy
@@ -113,7 +57,10 @@ def generate_image_with_comfy(data: Prompt):
 
 
     img_type = data.img_type
-    print("Generating  image for:", img_type)
+    user_id = data.user_id
+    print("Generating  image for:", img_type, "User ID:", user_id)
+    if not user_id:
+        return JSONResponse(content={"error": "user_id is required."}, status_code=400)
 
 
     if img_type == "semi_realistic":
@@ -121,6 +68,7 @@ def generate_image_with_comfy(data: Prompt):
         workflow_file = "t2i_semi_realistic2.json"
         prompt_node_index = "3"
     else:
+        img_type = "ultra_realistic"
         # workflow for t2i_ultra_realistic2
         workflow_file = "t2i_ultra_realistic2.json"
         prompt_node_index = "3"
@@ -133,16 +81,27 @@ def generate_image_with_comfy(data: Prompt):
     #  update the prompt node in the workflow
     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
 
-    # Unique ID for the request
-    prompt_id = str(uuid.uuid4())
-
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow, prompt_id)
+    res=send_prompt(workflow)
+
+    if not res:
+        return JSONResponse(content={"error": "Failed to  generate image please try again later."}, status_code=500)
 
     response_id=res.get("prompt_id")
     print('Response:', res)
     print('Response prompt_id:', response_id)
 
+    # Create a task record in the database
+    generating_task=db_operations.create_generation_task(
+        db,
+        prompt_id=response_id,
+        user_id=user_id,
+        task_type="image",
+        generation_style=img_type,
+        input_prompt=data.prompt,
+    )
+
+    print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
     # start the celery task to fetch the images
     task = generate_task.delay(response_id=response_id, video=False)
     
@@ -154,7 +113,10 @@ def generate_image_with_comfy(data: Prompt):
 @app.post("/api/generate_text_video")
 def generate_text_video_with_comfy(data: Prompt):
     video_style= data.img_type
-    print("Generating video with style:", video_style)
+    user_id = data.user_id
+    print("Generating  video for:", video_style, "User ID:", user_id)
+    if not user_id:
+        return JSONResponse(content={"error": "user_id is required."}, status_code=400)
 
     if video_style == "cartoon":
         #   workflow for semi-realistic image
@@ -162,6 +124,7 @@ def generate_text_video_with_comfy(data: Prompt):
         prompt_node_index = "123"
     else:
         # workflow for t2i_ultra_realistic2
+        video_style = "smooth"
         workflow_file = "wan22_smooth_workflow_t2v.json"
         prompt_node_index = "123"
 
@@ -172,15 +135,28 @@ def generate_text_video_with_comfy(data: Prompt):
 
     # update the prompt node in the workflow
     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
-
-    # Unique ID for the request
-    prompt_id = str(uuid.uuid4())   
+ 
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow, prompt_id)
+    res=send_prompt(workflow)
 
+    if not res:
+        return JSONResponse(content={"error": "Failed to  generate video please try again later."}, status_code=500)
+    
     response_id=res.get("prompt_id")
     print('Response:', res)
     print('Response prompt_id:', response_id)
+
+    # Create a task record in the database
+    generating_task=db_operations.create_generation_task(
+        db,
+        prompt_id=response_id,
+        user_id=user_id,
+        task_type="t2v",
+        generation_style=video_style,
+        input_prompt=data.prompt,
+    )
+
+    print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
 
     # start the celery task to fetch the images
     task = generate_task.delay(response_id=response_id, video=True)
@@ -191,7 +167,10 @@ def generate_text_video_with_comfy(data: Prompt):
 
 # api to generate video from image
 @app.post("/api/generate_image_video")
-def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...)):
+def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None)):
+
+    if not user_id:
+        return JSONResponse(content={"error": "user_id is required."}, status_code=400)
 
     # Save uploaded image
     input_path = f"inputs/{uuid.uuid4()}_{file.filename}"
@@ -223,14 +202,31 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     print('\n\n\nUpdated workflow:', workflow) 
     print('\n\n=*80\n\n')
 
-    # Unique ID for the request
-    prompt_id = str(uuid.uuid4())   
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow, prompt_id)
+    res=send_prompt(workflow)
+
+    if not res:
+        return JSONResponse(content={"error": "Failed to  generate video please try again later."}, status_code=500)
 
     response_id=res.get("prompt_id")
     print('Response:', res)
     print('Response prompt_id:', response_id)
+
+    video_style= "smooth"
+
+    # Create a task record in the database
+    generating_task=db_operations.create_generation_task(
+        db,
+        prompt_id=response_id,
+        user_id=user_id,
+        task_type="i2v",
+        input_image_url=input_path,
+        generation_style=video_style,
+        input_prompt=prompt,
+
+    )
+
+    print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
 
     # start the celery task to fetch the images
     task = generate_task.delay(response_id=response_id, video=True)
