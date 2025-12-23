@@ -14,6 +14,15 @@ from database import SessionLocal
 from models import GenerationTask, GeneratedFile
 import db_operations  
 
+from dotenv import load_dotenv
+from run_pod_utility import get_running_pod
+import os
+load_dotenv()
+
+
+
+
+
 # -------------------------
 # Redis (SEPARATE DB)
 # -------------------------
@@ -44,6 +53,12 @@ def generate_task(self, response_id: str, video: bool = False):
     # -------------------------
     if not response_id:
         raise ValueError("response_id is required")
+    
+
+    RUNPOD_ID = get_running_pod()
+    COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+    print("ComfyUI URL in task:", COMFY_URL)
+
 
     retry_delay = 300 if video else 60
     done_key = f"done:{response_id}"
@@ -86,7 +101,7 @@ def generate_task(self, response_id: str, video: bool = False):
         # -------------------------
         # Fetch ComfyUI history
         # -------------------------
-        history = get_history(response_id)
+        history = get_history(response_id, COMFY_URL)
         outputs = history.get(response_id, {}).get("outputs", {})
 
         # -------------------------
@@ -123,7 +138,7 @@ def generate_task(self, response_id: str, video: bool = False):
                 f"Files from node {node_id}: {file_list}"
             )
 
-            downloaded = download_images_list(file_list)
+            downloaded = download_images_list(file_list, COMFY_URL)
             final_files.extend(downloaded)
 
         # -------------------------
@@ -212,3 +227,4 @@ def generate_task(self, response_id: str, video: bool = False):
         # db_operations.update_task_status(db, response_id, "failed")
 
         raise self.retry(exc=e, countdown=retry_delay)
+    
