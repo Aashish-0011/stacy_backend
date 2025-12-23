@@ -92,6 +92,14 @@ def get_task_with_files(
     )
     return task
 
+def get_user_prompts(db: Session, user_id: str):
+    return (
+        db.query(GenerationTask)
+        .filter(GenerationTask.user_id == user_id)
+        .order_by(GenerationTask.created_at.desc())
+        .all()
+    )
+
 
 if __name__=='__main__':
     # Example usage (requires a valid DB session)
@@ -129,8 +137,14 @@ if __name__=='__main__':
     #     print(f"Added Generated File: {gf.file_url}, Type: {gf.file_type}")
 
     # # Fetch task with files
-    fetched_task = get_task_with_files(db, prompt_id="example123")
-    if fetched_task:
-        print(f"Fetched Task: {fetched_task.prompt_id}, Status: {fetched_task.status}")
-        for gf in fetched_task.generated_files:
-            print(f" - File URL: {gf.file_url}, Type: {gf.file_type}")
+    # fetched_task = get_task_with_files(db, prompt_id="example123")
+    # if fetched_task:
+    #     print(f"Fetched Task: {fetched_task.prompt_id}, Status: {fetched_task.status}")
+    #     for gf in fetched_task.generated_files:
+    #         print(f" - File URL: {gf.file_url}, Type: {gf.file_type}")
+
+    # data=get_user_prompts(db, user_id="1")
+    # print('data--->>>',data)
+
+    data=get_task_with_files(db, prompt_id='3a896268-78ee-48df-b53f-87c9168d6a69')
+    print('data--->>>',data.generated_files)
