@@ -19,8 +19,6 @@ from run_pod_utility import get_running_pod
 from sqlalchemy.orm import Session
 from deps import get_db
 
-db=SessionLocal()
-
 load_dotenv()
 
 # Load environment variable
@@ -61,7 +59,7 @@ class Prompt(BaseModel):
 
 #  api to genrate image with comfy
 @app.post("/api/generate_image")
-def generate_image_with_comfy(data: Prompt):
+def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
     #  check runpod is availabe or not
     if not RUNPOD_ID:
@@ -124,7 +122,7 @@ def generate_image_with_comfy(data: Prompt):
 
 #  api to generate video  with comfy
 @app.post("/api/generate_text_video")
-def generate_text_video_with_comfy(data: Prompt):
+def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     
     #  check runpod is availabe or not
     if not RUNPOD_ID:
@@ -185,7 +183,7 @@ def generate_text_video_with_comfy(data: Prompt):
 
 # api to generate video from image
 @app.post("/api/generate_image_video")
-def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None)):
+def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None), db: Session = Depends(get_db)):
 
     #  check runpod is availabe or not
     if not RUNPOD_ID:
