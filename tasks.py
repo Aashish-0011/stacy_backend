@@ -38,6 +38,14 @@ redis_client = redis.Redis(
 # -------------------------
 logging.basicConfig(level=logging.INFO)
 
+# -------------------------------------------------
+# Constants
+# -------------------------------------------------
+LOCK_TTL = 3600            # Max time one task may run
+DONE_TTL = 24 * 3600       # Keep completion marker
+DEFAULT_RETRY = 60
+VIDEO_RETRY = 300
+
 # -------------------------
 # Celery Task
 # -------------------------
@@ -45,7 +53,7 @@ logging.basicConfig(level=logging.INFO)
     bind=True,
     name="generate.comfy.task",
     max_retries=30,
-    default_retry_delay=60,
+    default_retry_delay=DEFAULT_RETRY,
 )
 def generate_task(self, response_id: str, video: bool = False):
     # -------------------------
@@ -60,8 +68,11 @@ def generate_task(self, response_id: str, video: bool = False):
     print("ComfyUI URL in task:", COMFY_URL)
 
 
-    retry_delay = 300 if video else 60
+    retry_delay = VIDEO_RETRY if video else DEFAULT_RETRY
+
     done_key = f"done:{response_id}"
+    lock_key = f"lock:{response_id}"
+
 
     db = SessionLocal()
 
@@ -83,15 +94,51 @@ def generate_task(self, response_id: str, video: bool = False):
         # --------------------------------------------------
         # ATOMIC HARD LOCK (exact-once guarantee)
         # --------------------------------------------------
-        if not redis_client.set(done_key, "processing", nx=True, ex=3600):
-            logging.info(
-                f"[TASK EXIT] response_id={response_id} already handled"
-            )
-            return {
-                "status": "completed",
-                "cached": True,
-                "video": video,
-            }
+        # if not redis_client.set(done_key, "processing", nx=True, ex=3600):
+        #     logging.info(
+        #         f"[TASK EXIT] response_id={response_id} already handled"
+        #     )
+        #     return {
+        #         "status": "completed",
+        #         "cached": True,
+        #         "video": video,
+        #     }
+        # -----------------------------------------
+        # Acquire HARD execution lock (atomic)
+        # -----------------------------------------
+        print("Acquiring lock with key:", lock_key)
+        print("elf.request.id:", self.request.id)
+        acquired = redis_client.set(
+            lock_key,
+            self.request.id,
+            nx=True,
+            ex=LOCK_TTL,
+        )
+
+        if not acquired:
+            owner = redis_client.get(lock_key)
+            print('owner--->>', owner)
+            print('self.request.id:--->>', self.request.id)
+            owner = redis_client.get(lock_key)
+            if owner == self.request.id:
+                logging.info(
+                    f"[TASK RETRY CONTINUE] {response_id} "
+                    f"retry={self.request.retries}"
+                )
+
+            else:
+
+                # Another worker owns it → exit
+                logging.info(
+                    f"[TASK EXIT] {response_id} "
+                    f"being processed by {owner}"
+                )
+                return {
+                    "status": "processing",
+                    "cached": True,
+                    "video": video,
+                }
+
 
         logging.info(
             f"[TASK START] response_id={response_id} "
@@ -189,6 +236,7 @@ def generate_task(self, response_id: str, video: bool = False):
         # MARK COMPLETED
         # -------------------------
         redis_client.set(done_key, "completed", ex=60)
+        redis_client.delete(lock_key)
 
         logging.info(
             f"[TASK SUCCESS] response_id={response_id} "
@@ -206,6 +254,8 @@ def generate_task(self, response_id: str, video: bool = False):
     # -------------------------
     except self.MaxRetriesExceededError:
         redis_client.set(done_key, "failed", ex=3600)
+        redis_client.delete(lock_key)   
+
         db_operations.update_task_status(db, response_id, "failed")
         logging.error(
             f"[TASK FAILED] Max retries exceeded "
@@ -227,4 +277,7 @@ def generate_task(self, response_id: str, video: bool = False):
         # db_operations.update_task_status(db, response_id, "failed")
 
         # raise self.retry(exc=e, countdown=retry_delay)
+    
+    finally:
+        db.close()
     
