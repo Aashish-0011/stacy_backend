@@ -83,15 +83,15 @@ def generate_task(self, response_id: str, video: bool = False):
         # --------------------------------------------------
         # ATOMIC HARD LOCK (exact-once guarantee)
         # --------------------------------------------------
-        # if not redis_client.set(done_key, "processing", nx=True, ex=3600):
-        #     logging.info(
-        #         f"[TASK EXIT] response_id={response_id} already handled"
-        #     )
-        #     return {
-        #         "status": "completed",
-        #         "cached": True,
-        #         "video": video,
-        #     }
+        if not redis_client.set(done_key, "processing", nx=True, ex=3600):
+            logging.info(
+                f"[TASK EXIT] response_id={response_id} already handled"
+            )
+            return {
+                "status": "completed",
+                "cached": True,
+                "video": video,
+            }
 
         logging.info(
             f"[TASK START] response_id={response_id} "
@@ -226,5 +226,5 @@ def generate_task(self, response_id: str, video: bool = False):
         )
         # db_operations.update_task_status(db, response_id, "failed")
 
-        raise self.retry(exc=e, countdown=retry_delay)
+        # raise self.retry(exc=e, countdown=retry_delay)
     
