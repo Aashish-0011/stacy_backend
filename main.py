@@ -44,6 +44,7 @@ print("Loading model from:", model_path)
 
 # Folder to store generated images
 os.makedirs("outputs", exist_ok=True)
+os.makedirs("inputs", exist_ok=True)
 
 
 app = FastAPI()
