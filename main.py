@@ -78,11 +78,13 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
         #   workflow for semi-realistic image
         workflow_file = "t2i_semi_realistic2.json"
         prompt_node_index = "3"
+        seed_node_index = "12"
     else:
         img_type = "ultra_realistic"
         # workflow for t2i_ultra_realistic2
         workflow_file = "t2i_ultra_realistic2.json"
         prompt_node_index = "3"
+        seed_node_index = "12"
   
     print('generating image with comfyui workflow:', workflow_file)
 
@@ -90,8 +92,7 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     workflow = load_workflow(workflow_file)
 
     #  update the prompt node in the workflow
-    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
-
+    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index, seed_node_index=seed_node_index)
     #  Send workflow to ComfyUI
     res=send_prompt(workflow, COMFY_URL)
 

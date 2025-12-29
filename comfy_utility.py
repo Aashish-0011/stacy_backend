@@ -3,6 +3,7 @@ import json
 import os
 import requests
 from dotenv import load_dotenv
+import random
 
 load_dotenv()
 
@@ -17,7 +18,7 @@ def load_workflow(json_path: str = "new_flow_deploy.json"):
         return json.load(f)
     
 # #  update workflow with prompt and image
-def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_node_index: int=35, image_node_index: int=None, I2V=False):
+def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_node_index: int=35, image_node_index: int=None, I2V=False, seed_node_index= None):
     """Update workflow JSON with prompt and optional image."""
     print("Updating workflow with prompt:", prompt_node_index)
     print("Workflow keys:", workflow[str(prompt_node_index)]["inputs"])
@@ -33,6 +34,12 @@ def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_n
          
          workflow[str(image_node_index)]["inputs"]["image"] = image_path
          print("Updating workflow with image:", image_node_index)
+
+    print('seed_node_index-->>',seed_node_index)    
+    if seed_node_index is not None:
+        seed_value = generate_large_seed()
+        print("previous seed value:", workflow[str(seed_node_index)]["inputs"]["seed"])
+        workflow[str(seed_node_index)]["inputs"]["seed"] = seed_value
          
 
     return workflow
@@ -138,3 +145,14 @@ def upload_image_to_comfy(image_path: str):
     print("Upload response:", res.json())
     uploaded_file = res.json().get("name")
     return uploaded_file
+
+
+def generate_large_seed():
+    """Generate a large random seed."""
+    seed = random.randint(10**14, 10**15 - 1)
+    print(seed, type(seed))
+    return seed
+
+if __name__ == "__main__":
+    # Test loading workflow
+    generate_large_seed()
