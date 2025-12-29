@@ -18,6 +18,8 @@ from database import SessionLocal
 from run_pod_utility import get_running_pod
 from sqlalchemy.orm import Session
 from deps import get_db
+from fastapi.middleware.cors import CORSMiddleware
+
 
 load_dotenv()
 
@@ -49,6 +51,14 @@ app = FastAPI()
 # Expose static image folder publicly
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 app.mount("/inputs", StaticFiles(directory="inputs"), name="inputs")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],        # allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],        # allow all HTTP methods
+    allow_headers=["*"],        # allow all headers
+)
 
 class Prompt(BaseModel):
     prompt: str
