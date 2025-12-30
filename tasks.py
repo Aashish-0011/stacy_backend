@@ -44,7 +44,7 @@ logging.basicConfig(level=logging.INFO)
 LOCK_TTL = 3600            # Max time one task may run
 DONE_TTL = 24 * 3600       # Keep completion marker
 DEFAULT_RETRY = 60
-VIDEO_RETRY = 300
+VIDEO_RETRY = 120
 
 # -------------------------
 # Celery Task
@@ -61,11 +61,6 @@ def generate_task(self, response_id: str, video: bool = False):
     # -------------------------
     if not response_id:
         raise ValueError("response_id is required")
-    
-
-    RUNPOD_ID = get_running_pod()
-    COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
-    print("ComfyUI URL in task:", COMFY_URL)
 
 
     retry_delay = VIDEO_RETRY if video else DEFAULT_RETRY
@@ -148,6 +143,10 @@ def generate_task(self, response_id: str, video: bool = False):
         # -------------------------
         # Fetch ComfyUI history
         # -------------------------
+        RUNPOD_ID = get_running_pod()
+        COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+        print("ComfyUI URL in task:", COMFY_URL)
+        
         history = get_history(response_id, COMFY_URL)
         outputs = history.get(response_id, {}).get("outputs", {})
 
