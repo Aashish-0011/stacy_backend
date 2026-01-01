@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
-from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy)
+from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy, update_width_height)
 from deps import get_db
 from tasks import generate_task
 from celery.result import AsyncResult
@@ -64,6 +64,8 @@ class Prompt(BaseModel):
     prompt: str
     img_type: str = "realistic"  # default type is 'realistic'
     user_id: str = None
+    width:str=None
+    height:str=None
 
 
 
@@ -79,6 +81,8 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
     img_type = data.img_type
     user_id = data.user_id
+    width=data.width
+    height=data.height
     print("Generating  image for:", img_type, "User ID:", user_id)
     if not user_id:
         return JSONResponse(content={"error": "user_id is required."}, status_code=400)
@@ -95,6 +99,9 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
         workflow_file = "t2i_ultra_realistic2.json"
         prompt_node_index = "3"
         seed_node_index = "12"
+    
+    # node id of the empty latent image
+    laten_image_node='6'
   
     print('generating image with comfyui workflow:', workflow_file)
 
@@ -103,6 +110,13 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
     #  update the prompt node in the workflow
     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index, seed_node_index=seed_node_index)
+
+    # update width and height if user  provide
+    if width and height:
+        print('updating width and height.....')
+        workflow=update_width_height(workflow=workflow,  node_id=laten_image_node, width=int(width), height=int(height))
+        print('width height updated')
+
     #  Send workflow to ComfyUI
     res=send_prompt(workflow, COMFY_URL)
 
