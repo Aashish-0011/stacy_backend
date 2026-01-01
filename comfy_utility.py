@@ -202,6 +202,20 @@ def update_slider_width_height(workflow: dict, node_id:str, width:int, height:in
     except Exception as e:
         print("unable to update the width and height of the slider due to:", e)
         return workflow
+    
+#  update the the video  length
+def update_frame_rate(workflow: dict, node_id:str, duration_in_sec: int):
+    try:
+        frame_count=(16*int(duration_in_sec))+1
+        print(f"frame count for {duration_in_sec} sec is {frame_count}")
+
+        workflow[str(node_id)]['inputs']['length'] = frame_count
+
+        return workflow
+
+    except Exception as e:
+        print('unabe to  update the video duration due to:', e )
+        return workflow
 
 
 if __name__ == "__main__":

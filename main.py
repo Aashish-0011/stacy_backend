@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
-from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy, update_width_height,  update_slider_width_height)
+from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy, update_width_height,  update_slider_width_height, update_frame_rate)
 from deps import get_db
 from tasks import generate_task
 from celery.result import AsyncResult
@@ -66,6 +66,7 @@ class Prompt(BaseModel):
     user_id: str = None
     width:str=None
     height:str=None
+    duration:int=None
 
 
 
@@ -157,6 +158,8 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     user_id = data.user_id
     width=data.width
     height=data.height
+    duration=data.duration
+    frame_node_id='50'
     print("Generating  video for:", video_style, "User ID:", user_id)
     if not user_id:
         return JSONResponse(content={"error": "user_id is required."}, status_code=400)
@@ -184,6 +187,11 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
     if width and height:
         workflow = update_slider_width_height(workflow=workflow, node_id=slider_node_id, width=int(width), height=int(height))
+    
+    #  update the video duration
+    if duration:
+        workflow=update_frame_rate(workflow=workflow, node_id=frame_node_id , duration_in_sec=duration)
+
  
     #  Send workflow to ComfyUI
     res=send_prompt(workflow, COMFY_URL)
@@ -216,7 +224,7 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
 # api to generate video from image
 @app.post("/api/generate_image_video")
-def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None), width: int = Form(None), height: int = Form(None), db: Session = Depends(get_db)):
+def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None), width: int = Form(None), height: int = Form(None),duration: int = Form(None), db: Session = Depends(get_db)):
 
     #  check runpod is availabe or not
     if not RUNPOD_ID:
@@ -254,6 +262,11 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     if width and height:
         slider_node_id="97"
         workflow = update_slider_width_height(workflow=workflow, node_id=slider_node_id, width=int(width), height=int(height))
+
+    #  update the video duration
+    if duration:
+        frame_node_id='50'
+        workflow=update_frame_rate(workflow=workflow, node_id=frame_node_id , duration_in_sec=duration)
  
 
     print('=*80\n\n')
