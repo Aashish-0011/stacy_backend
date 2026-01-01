@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
-from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy, update_width_height)
+from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy, update_width_height,  update_slider_width_height)
 from deps import get_db
 from tasks import generate_task
 from celery.result import AsyncResult
@@ -155,6 +155,8 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     
     video_style= data.img_type
     user_id = data.user_id
+    width=data.width
+    height=data.height
     print("Generating  video for:", video_style, "User ID:", user_id)
     if not user_id:
         return JSONResponse(content={"error": "user_id is required."}, status_code=400)
@@ -168,6 +170,9 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
         video_style = "smooth"
         workflow_file = "wan22_smooth_workflow_t2v.json"
         prompt_node_index = "123"
+    
+    # slider node id for update width and  height
+    slider_node_id="112"
 
     print('generating video with comfyui workflow:', workflow_file)
 
@@ -176,6 +181,9 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
     # update the prompt node in the workflow
     workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index)
+
+    if width and height:
+        workflow = update_slider_width_height(workflow=workflow, node_id=slider_node_id, width=int(width), height=int(height))
  
     #  Send workflow to ComfyUI
     res=send_prompt(workflow, COMFY_URL)
@@ -208,7 +216,7 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
 # api to generate video from image
 @app.post("/api/generate_image_video")
-def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None), db: Session = Depends(get_db)):
+def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None), width: int = Form(None), height: int = Form(None), db: Session = Depends(get_db)):
 
     #  check runpod is availabe or not
     if not RUNPOD_ID:
@@ -242,6 +250,11 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
 
     # update the prompt node in the workflow
     workflow =  update_workflow(workflow=workflow, prompt=prompt, prompt_node_index=prompt_node_index, I2V=True, image_path=comfy_image_path, image_node_index=image_node_index)
+
+    if width and height:
+        slider_node_id="97"
+        workflow = update_slider_width_height(workflow=workflow, node_id=slider_node_id, width=int(width), height=int(height))
+ 
 
     print('=*80\n\n')
     print('\n\n\nUpdated workflow:', workflow) 

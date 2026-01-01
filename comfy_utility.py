@@ -156,17 +156,18 @@ def generate_large_seed():
 #  updatet the image width and  height
 def update_width_height(workflow: dict, node_id: str, width: int, height: int):
     try:
+        node_id = str(node_id)
         print('new width: ', width)
         print('new height: ', height)
         print('node_id to update : ', node_id)
 
         # previous width hegiht
-        print("previous width:", workflow[str(node_id)]["inputs"]['width'])
-        print("previous height:", workflow[str(node_id)]["inputs"]['height'])
+        print("previous width:", workflow[node_id]["inputs"]['width'])
+        print("previous height:", workflow[node_id]["inputs"]['height'])
 
         #  update width height
-        workflow[str(node_id)]["inputs"]['width'] = int(width)
-        workflow[str(node_id)]["inputs"]['height'] = int(height)
+        workflow[node_id]["inputs"]['width'] = int(width)
+        workflow[node_id]["inputs"]['height'] = int(height)
 
         print('updated worflow:', workflow)
 
@@ -174,6 +175,34 @@ def update_width_height(workflow: dict, node_id: str, width: int, height: int):
     except Exception as e:
         print('unable to update the work flow due to: ', str(e))
         return workflow
+    
+# update the widh and height of the mxSlider for the video
+def update_slider_width_height(workflow: dict, node_id:str, width:int, height:int):
+    try:
+        node_id = str(node_id)
+        print('new width: ', width)
+        print('new height: ', height)
+        print('node_id to update : ', node_id)
+
+        # previous width hegiht
+        print("previous Xi:", workflow[node_id]["inputs"]['Xi'])
+        print("previous Xf:", workflow[node_id]["inputs"]['Xf'])
+        print("previous Yi:", workflow[node_id]["inputs"]['Yi'])
+        print("previous Yf:", workflow[node_id]["inputs"]['Yf'])
+
+        #  update width height
+        workflow[node_id]["inputs"]['Xi'] = int(width)
+        workflow[node_id]["inputs"]['Xf'] = int(width)
+        workflow[node_id]["inputs"]['Yi'] = int(height)
+        workflow[node_id]["inputs"]['Yf'] = int(height)
+
+        print('updated worflow:', workflow)
+
+        return workflow
+    except Exception as e:
+        print("unable to update the width and height of the slider due to:", e)
+        return workflow
+
 
 if __name__ == "__main__":
     # Test loading workflow
