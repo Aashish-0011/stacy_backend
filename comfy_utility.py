@@ -139,7 +139,7 @@ def get_node_videos(history_data, node_id: str):
         )
 
 # upload image to the comfy
-def upload_image_to_comfy(image_path: str):
+def upload_image_to_comfy(image_path: str, COMFY_URL):
     """Upload image to ComfyUI server."""
     url = f"{COMFY_URL}/upload/image"
 

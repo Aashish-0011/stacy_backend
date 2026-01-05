@@ -351,7 +351,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
 
 
     #  upload image to comfyui server
-    comfy_image_path = upload_image_to_comfy(input_path)
+    comfy_image_path = upload_image_to_comfy(input_path, COMFY_URL)
     print("Uploaded image to ComfyUI:", comfy_image_path)
 
     # workflow for smooth video
