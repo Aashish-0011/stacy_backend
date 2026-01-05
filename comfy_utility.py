@@ -6,6 +6,10 @@ from dotenv import load_dotenv
 import random
 import logging
 logger = logging.getLogger(__name__)
+import  uuid
+import shutil
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -244,6 +248,37 @@ def update_frame_rate(workflow: dict, node_id:str, duration_in_sec: int):
         print('unabe to  update the video duration due to:', e )
         return workflow
 
+
+# image handle for the video generation
+def save_image(file):
+    try:
+        # Save uploaded image
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        file_id = uuid.uuid4()
+
+        print('file ext-->>', file_ext)
+        input_path=None
+
+        #  convert webp file to png
+        if file_ext == ".webp":
+            input_path = f"inputs/{file_id}.png"
+
+            logger.info("WEBP detected, converting to PNG")
+
+            image_bytes = file.file.read()
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            image.save(input_path, format="PNG")
+
+        else:
+            input_path = f"inputs/{uuid.uuid4()}_{file.filename}"
+            print("Saving uploaded image to:", input_path)
+            os.makedirs("inputs", exist_ok=True)
+            with open(input_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        
+        return input_path
+    except Exception as e:
+        logger.error(f"unable to  save image due to {str(e)}")
 
 if __name__ == "__main__":
     # Test loading workflow

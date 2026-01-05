@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 from fastapi.staticfiles import StaticFiles
-from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy, update_width_height,  update_slider_width_height, update_frame_rate)
+from comfy_utility import (load_workflow, update_workflow, send_prompt, get_history, get_node_images, get_node_videos, download_images_list, upload_image_to_comfy, update_width_height,  update_slider_width_height, update_frame_rate, save_image)
 from deps import get_db
 from tasks import generate_task
 from celery.result import AsyncResult
@@ -21,6 +21,7 @@ from deps import get_db
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from typing import Optional
+
 
 
 # 🔴 Remove uvicorn's default handlers
@@ -340,12 +341,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
         logger.warning("Missing user_id in request")
         return JSONResponse(content={"error": "user_id is required."}, status_code=400)
 
-    # Save uploaded image
-    input_path = f"inputs/{uuid.uuid4()}_{file.filename}"
-    print("Saving uploaded image to:", input_path)
-    os.makedirs("inputs", exist_ok=True)
-    with open(input_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    input_path=save_image(file=file)
     
     logger.info(f" uploaded image save at: {input_path}")
 
