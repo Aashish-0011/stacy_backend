@@ -15,57 +15,67 @@ load_dotenv()
 # JSON Workflow Management
 # ------------------------------
 def load_workflow(json_path: str = "new_flow_deploy.json"):
-    """Load workflow JSON file."""
-    logger.info("Loading workflow JSON | file=%s", json_path)
-    with open(json_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        """Load workflow JSON file."""
+        logger.info("Loading workflow JSON | file=%s", json_path)
+        with open(json_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Unable to Load the workflow: {json_path} due to {str(e)}")
+        return None
     
 # #  update workflow with prompt and image
 def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_node_index: int=35, image_node_index: int=None, I2V=False, seed_node_index= None):
-    """Update workflow JSON with prompt and optional image."""
-    print("Updating workflow with prompt:", prompt_node_index)
-    print("Workflow keys:", workflow[str(prompt_node_index)]["inputs"])
-    logger.info(
-        "Updating workflow | prompt_node=%s | I2V=%s",
-        prompt_node_index,
-        I2V,
-    )
-    if I2V:
-        # for I2V
-        workflow[str(prompt_node_index)]["inputs"]["value"] = prompt
+    try:
+        """Update workflow JSON with prompt and optional image."""
+        print("Updating workflow with prompt:", prompt_node_index)
+        print("Workflow keys:", workflow[str(prompt_node_index)]["inputs"])
+        logger.info(
+            "Updating workflow | prompt_node=%s | I2V=%s",
+            prompt_node_index,
+            I2V,
+        )
+        if I2V:
+            # for I2V
+            workflow[str(prompt_node_index)]["inputs"]["value"] = prompt
 
-    else:
-        # for  t2v or t2i
-        workflow[str(prompt_node_index)]["inputs"]["text"] = prompt
+        else:
+            # for  t2v or t2i
+            workflow[str(prompt_node_index)]["inputs"]["text"] = prompt
 
-    if image_path:
-         
-         workflow[str(image_node_index)]["inputs"]["image"] = image_path
-         print("Updating workflow with image:", image_node_index)
-         logger.info("Image injected into workflow | node=%s", image_node_index)
+        if image_path:
+            
+            workflow[str(image_node_index)]["inputs"]["image"] = image_path
+            print("Updating workflow with image:", image_node_index)
+            logger.info("Image injected into workflow | node=%s", image_node_index)
 
 
-    print('seed_node_index-->>',seed_node_index)    
-    if seed_node_index is not None:
-        seed_value = generate_large_seed()
-        print("previous seed value:", workflow[str(seed_node_index)]["inputs"]["seed"])
-        workflow[str(seed_node_index)]["inputs"]["seed"] = seed_value
-        logger.debug("Seed updated | node=%s | seed=%s", seed_node_index, seed_value)
+        print('seed_node_index-->>',seed_node_index)    
+        if seed_node_index is not None:
+            seed_value = generate_large_seed()
+            print("previous seed value:", workflow[str(seed_node_index)]["inputs"]["seed"])
+            workflow[str(seed_node_index)]["inputs"]["seed"] = seed_value
+            logger.debug("Seed updated | node=%s | seed=%s", seed_node_index, seed_value)
 
-         
-
-    return workflow
+        return workflow
+    except Exception as e:
+        logger.error(f"Unable to Update  the workflow: due to {str(e)}")
+        return None
 
 def send_prompt(workflow_json, COMFY_URL):
-    """Send workflow JSON to ComfyUI"""
-    logger.info("Sending workflow to ComfyUI | url=%s", COMFY_URL)
+    try:
+        """Send workflow JSON to ComfyUI"""
+        logger.info("Sending workflow to ComfyUI | url=%s", COMFY_URL)
 
-    res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json})
-    
+        res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json})
+        
 
-    if res.status_code != 200:
+        if res.status_code != 200:
+            return None
+        return res.json()
+    except Exception as e:
+        logger.error(f"Unable to Send prompt due to {str(e)}")
         return None
-    return res.json()
 
 def get_history(prompt_id, COMFY_URL):
     """Get finished job history"""
