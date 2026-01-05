@@ -4,6 +4,8 @@ import os
 import requests
 from dotenv import load_dotenv
 import random
+import logging
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -14,6 +16,7 @@ load_dotenv()
 # ------------------------------
 def load_workflow(json_path: str = "new_flow_deploy.json"):
     """Load workflow JSON file."""
+    logger.info("Loading workflow JSON | file=%s", json_path)
     with open(json_path, "r", encoding="utf-8") as f:
         return json.load(f)
     
@@ -22,6 +25,11 @@ def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_n
     """Update workflow JSON with prompt and optional image."""
     print("Updating workflow with prompt:", prompt_node_index)
     print("Workflow keys:", workflow[str(prompt_node_index)]["inputs"])
+    logger.info(
+        "Updating workflow | prompt_node=%s | I2V=%s",
+        prompt_node_index,
+        I2V,
+    )
     if I2V:
         # for I2V
         workflow[str(prompt_node_index)]["inputs"]["value"] = prompt
@@ -34,19 +42,26 @@ def update_workflow(workflow: dict, prompt: str, image_path: str= None, prompt_n
          
          workflow[str(image_node_index)]["inputs"]["image"] = image_path
          print("Updating workflow with image:", image_node_index)
+         logger.info("Image injected into workflow | node=%s", image_node_index)
+
 
     print('seed_node_index-->>',seed_node_index)    
     if seed_node_index is not None:
         seed_value = generate_large_seed()
         print("previous seed value:", workflow[str(seed_node_index)]["inputs"]["seed"])
         workflow[str(seed_node_index)]["inputs"]["seed"] = seed_value
+        logger.debug("Seed updated | node=%s | seed=%s", seed_node_index, seed_value)
+
          
 
     return workflow
 
 def send_prompt(workflow_json, COMFY_URL):
     """Send workflow JSON to ComfyUI"""
+    logger.info("Sending workflow to ComfyUI | url=%s", COMFY_URL)
+
     res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow_json})
+    
 
     if res.status_code != 200:
         return None
@@ -55,6 +70,8 @@ def send_prompt(workflow_json, COMFY_URL):
 def get_history(prompt_id, COMFY_URL):
     """Get finished job history"""
     url =f"{COMFY_URL}/history/{prompt_id}"
+    logger.info("Fetching ComfyUI history | prompt_id=%s", prompt_id)
+
 
     print('hstory url', url )
     res = requests.get(url )

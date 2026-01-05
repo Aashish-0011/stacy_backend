@@ -19,6 +19,26 @@ from run_pod_utility import get_running_pod
 from sqlalchemy.orm import Session
 from deps import get_db
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+from typing import Optional
+
+
+# 🔴 Remove uvicorn's default handlers
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
+
+logging.basicConfig(
+    level=logging.INFO,                     # change to DEBUG if needed
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),      # save logs to file
+        logging.StreamHandler()              # show logs in console
+    ]
+)
+
+logger=logging.getLogger(__name__)
+
 
 
 load_dotenv()
@@ -29,13 +49,15 @@ model_path = os.getenv("IMG_MODEL")
 
 RUNPOD_ID=get_running_pod()
 
+logger.info(f"Pod id fetched successsfully: {RUNPOD_ID}")
+
 
 print('RUNPOD_ID--->>>',RUNPOD_ID)
 
 COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
 
 print('COMFY_URL--->>>',COMFY_URL)
-
+logger.info(f"COMFY_URL: {COMFY_URL}")
 
 
 # load Stable Diffusion model
@@ -62,96 +84,149 @@ app.add_middleware(
 
 class Prompt(BaseModel):
     prompt: str
-    img_type: str = "realistic"  # default type is 'realistic'
-    user_id: str = None
-    width:str=None
-    height:str=None
-    duration:int=None
+    img_type: Optional[str] = None
+    user_id: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    duration: Optional[int] = None
 
 
 
 #  api to genrate image with comfy
 @app.post("/api/generate_image")
 def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
+    try:
+        print('data--->>', data.json())
+        logger.info("POST /api/generate_image called")
 
-    #  check runpod is availabe or not
-    if not RUNPOD_ID:
-        return JSONResponse(content={"error": "RUNPOD_ID is not available."}, status_code=400)
+        logger.info(
+            "Generate image request | user_id=%s | img_type=%s | width=%s | height=%s",
+            data.user_id,
+            data.img_type,
+            data.width,
+            data.height,
+        )
+
+        #  check runpod is availabe or not
+        if not RUNPOD_ID:
+            logger.error("RUNPOD_ID not available")
+            return JSONResponse(content={"error": "RUNPOD_ID is not available."}, status_code=400)
 
 
 
-    img_type = data.img_type
-    user_id = data.user_id
-    width=data.width
-    height=data.height
-    print("Generating  image for:", img_type, "User ID:", user_id)
-    if not user_id:
-        return JSONResponse(content={"error": "user_id is required."}, status_code=400)
+        img_type = data.img_type
+        user_id = data.user_id
+        width=data.width
+        height=data.height
+        print("Generating  image for:", img_type, "User ID:", user_id)
+        if not user_id:
+            logger.warning("Missing user_id in request")
+            return JSONResponse(content={"error": "user_id is required."}, status_code=400)
 
 
-    if img_type == "semi_realistic":
-        #   workflow for semi-realistic image
-        workflow_file = "t2i_semi_realistic2.json"
-        prompt_node_index = "3"
-        seed_node_index = "12"
-    else:
-        img_type = "ultra_realistic"
-        # workflow for t2i_ultra_realistic2
-        workflow_file = "t2i_ultra_realistic2.json"
-        prompt_node_index = "3"
-        seed_node_index = "12"
-    
-    # node id of the empty latent image
-    laten_image_node='6'
-  
-    print('generating image with comfyui workflow:', workflow_file)
+        if img_type == "semi_realistic":
+            #   workflow for semi-realistic image
+            workflow_file = "t2i_semi_realistic2.json"
+            prompt_node_index = "3"
+            seed_node_index = "12"
+        else:
+            img_type = "ultra_realistic"
+            # workflow for t2i_ultra_realistic2
+            workflow_file = "t2i_ultra_realistic2.json"
+            prompt_node_index = "3"
+            seed_node_index = "12"
 
-    #  load the workflow JSON
-    workflow = load_workflow(workflow_file)
+        # node id of the empty latent image
+        laten_image_node='6'
 
-    #  update the prompt node in the workflow
-    workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index, seed_node_index=seed_node_index)
+        logger.info(
+                "Selected workflow | style=%s | file=%s",
+                img_type,
+                workflow_file,
+            )
 
-    # update width and height if user  provide
-    if width and height:
-        print('updating width and height.....')
-        workflow=update_width_height(workflow=workflow,  node_id=laten_image_node, width=int(width), height=int(height))
-        print('width height updated')
+        print('generating image with comfyui workflow:', workflow_file)
 
-    #  Send workflow to ComfyUI
-    res=send_prompt(workflow, COMFY_URL)
+        #  load the workflow JSON
+        workflow = load_workflow(workflow_file)
 
-    if not res:
-        return JSONResponse(content={"error": "Failed to  generate image please try again later."}, status_code=500)
+        #  update the prompt node in the workflow
+        workflow=  update_workflow(workflow=workflow, prompt=data.prompt, prompt_node_index=prompt_node_index, seed_node_index=seed_node_index)
 
-    response_id=res.get("prompt_id")
-    print('Response:', res)
-    print('Response prompt_id:', response_id)
+        # update width and height if user  provide
+        if width and height:
+            print('updating width and height.....')
+            logger.info(
+                    "Updating width & height | width=%s height=%s",
+                    data.width,
+                    data.height,
+                )
 
-    # Create a task record in the database
-    generating_task=db_operations.create_generation_task(
-        db,
-        prompt_id=response_id,
-        user_id=user_id,
-        task_type="image",
-        generation_style=img_type,
-        input_prompt=data.prompt,
-    )
+            workflow=update_width_height(workflow=workflow,  node_id=laten_image_node, width=int(width), height=int(height))
+            print('width height updated')
 
-    print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
-    # start the celery task to fetch the images
-    task = generate_task.delay(response_id=response_id, video=False)
-    
-    return JSONResponse(
-        content={"task_id": task.id, "response_id": response_id, "message": "Image generation initiated."},status_code=202)
+        #  Send workflow to ComfyUI
+        logger.info("Sending workflow to ComfyUI")
+        res=send_prompt(workflow, COMFY_URL)
+
+        if not res:
+            logger.error("ComfyUI returned empty response")
+            return JSONResponse(content={"error": "Failed to  generate image please try again later."}, status_code=500)
+
+        response_id=res.get("prompt_id")
+        print('Response:', res)
+        print('Response prompt_id:', response_id)
+        logger.info("ComfyUI accepted prompt | prompt_id=%s", response_id)
+
+
+        # Create a task record in the database
+        generating_task=db_operations.create_generation_task(
+            db,
+            prompt_id=response_id,
+            user_id=user_id,
+            task_type="image",
+            generation_style=img_type,
+            input_prompt=data.prompt,
+        )
+
+        logger.info(
+                "DB task created | prompt_id=%s | status=%s",
+                generating_task.prompt_id,
+                generating_task.status,
+            )
+        print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
+        # start the celery task to fetch the images
+        task = generate_task.delay(response_id=response_id, video=False)
+        logger.info("Celery task started | task_id=%s", task.id)
+
+        return JSONResponse(
+            content={"task_id": task.id, "response_id": response_id, "message": "Image generation initiated."},status_code=202)
+    except Exception as e:
+        logger.exception(f"Image generation failed due to {str(e)}")
+        return JSONResponse(
+            content={"error": "Internal server error"},
+            status_code=500,
+        )
+
 
 
 #  api to generate video  with comfy
 @app.post("/api/generate_text_video")
 def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
+    print("000000prompt-->>>", data.json())
+    logger.info("POST /api/generate_text_video called")
+
+    logger.info(
+        "Generate Video  request | user_id=%s | img_type=%s | width=%s | height=%s",
+        data.user_id,
+        data.img_type,
+        data.width,
+        data.height,
+    )
     
     #  check runpod is availabe or not
     if not RUNPOD_ID:
+        logger.error("RUNPOD_ID not available")
         return JSONResponse(content={"error": "RUNPOD_ID is not available."}, status_code=400)
     
     video_style= data.img_type
@@ -162,6 +237,7 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     frame_node_id='50'
     print("Generating  video for:", video_style, "User ID:", user_id)
     if not user_id:
+        logger.warning("Missing user_id in request")
         return JSONResponse(content={"error": "user_id is required."}, status_code=400)
 
     if video_style == "cartoon":
@@ -178,6 +254,11 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     slider_node_id="112"
 
     print('generating video with comfyui workflow:', workflow_file)
+    logger.info(
+                "Selected workflow | style=%s | file=%s",
+                video_style,
+                workflow_file,
+            )
 
     #  load the workflow JSON
     workflow=load_workflow(workflow_file)
@@ -197,6 +278,7 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     res=send_prompt(workflow, COMFY_URL)
 
     if not res:
+        logger.error("ComfyUI returned empty response")
         return JSONResponse(content={"error": "Failed to  generate video please try again later."}, status_code=500)
     
     response_id=res.get("prompt_id")
@@ -214,9 +296,15 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
     )
 
     print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
-
+    logger.info(
+                "DB task created | prompt_id=%s | status=%s",
+                generating_task.prompt_id,
+                generating_task.status,
+            )
     # start the celery task to fetch the images
     task = generate_task.delay(response_id=response_id, video=True)
+    logger.info("Celery task started | task_id=%s", task.id)
+
     
     return JSONResponse(
         content={"task_id": task.id, "response_id": response_id, "message": "Video generation initiated."},status_code=202)
@@ -226,11 +314,20 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 @app.post("/api/generate_image_video")
 def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = Form(...), user_id: str = Form(None), width: int = Form(None), height: int = Form(None),duration: int = Form(None), db: Session = Depends(get_db)):
 
+    logger.info("POST /api/generate_image_video called")
+    logger.info(
+        "Generate Video  request | user_id=%s | width=%s | height=%s",
+        user_id,
+        width,
+        height,
+    )
     #  check runpod is availabe or not
     if not RUNPOD_ID:
+        logger.error("RUNPOD_ID not available")
         return JSONResponse(content={"error": "RUNPOD_ID is not available."}, status_code=400)
 
     if not user_id:
+        logger.warning("Missing user_id in request")
         return JSONResponse(content={"error": "user_id is required."}, status_code=400)
 
     # Save uploaded image
@@ -239,6 +336,9 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     os.makedirs("inputs", exist_ok=True)
     with open(input_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+    
+    logger.info(f" uploaded image save at: {input_path}")
+
 
     #  upload image to comfyui server
     comfy_image_path = upload_image_to_comfy(input_path)
@@ -250,6 +350,10 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     image_node_index = "52"
 
     print('generating video with comfyui workflow:', workflow_file)
+    logger.info(
+                "generating video with comfyui workflow| file=%s",
+                workflow_file,
+            )
 
     #  load the workflow JSON
     workflow=load_workflow(workflow_file)
@@ -277,6 +381,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     res=send_prompt(workflow, COMFY_URL)
 
     if not res:
+        logger.error("ComfyUI returned empty response")
         return JSONResponse(content={"error": "Failed to  generate video please try again later."}, status_code=500)
 
     response_id=res.get("prompt_id")
@@ -298,9 +403,15 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     )
 
     print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
+    logger.info(
+                "DB task created | prompt_id=%s | status=%s",
+                generating_task.prompt_id,
+                generating_task.status,
+            )
 
     # start the celery task to fetch the images
     task = generate_task.delay(response_id=response_id, video=True)
+    logger.info("Celery task started | task_id=%s", task.id)
     
     return JSONResponse(
         content={"task_id": task.id, "response_id": response_id, "message": "Video generation initiated."},status_code=202)
@@ -346,6 +457,7 @@ def get_prompt_response_api(
     task = db_operations.get_task_with_files(db, prompt_id)
 
     if not task:
+        logger.warning("Please provide the prompt id")
         return JSONResponse(
             status_code=404,
             content={
@@ -387,6 +499,7 @@ def update_runpod_id():
     global RUNPOD_ID, COMFY_URL
     RUNPOD_ID = get_running_pod()
     COMFY_URL = f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+    logger.info(f"Pod id fetched successsfully by api: {RUNPOD_ID} and COMFY_URL : {COMFY_URL}")
     if RUNPOD_ID:
         print("Updated RUNPOD_ID:", RUNPOD_ID)
         print("Updated COMFY_URL:", COMFY_URL)
@@ -408,6 +521,14 @@ def task_status(task_id: str):
     if task.state == "FAILURE":
         return {"status": "failed", "error": str(task.result)}
 
+
+# test api 
+@app.post("/api/test")
+def test(data):
+    res=data
+    print("data-->>>",res, type(res) )
+
+    return JSONResponse(content={"status": "Done."}, status_code=200)
 
 
 if __name__ == "__main__":
