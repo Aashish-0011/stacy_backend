@@ -77,10 +77,20 @@ app.mount("/inputs", StaticFiles(directory="inputs"), name="inputs")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],        # allow all origins
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],        # allow all HTTP methods
     allow_headers=["*"],        # allow all headers
 )
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "https://ai-nude.io",
+#         "https://www.ai-nude.io",
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 class Prompt(BaseModel):
     prompt: str
