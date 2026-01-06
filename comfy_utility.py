@@ -82,19 +82,23 @@ def send_prompt(workflow_json, COMFY_URL):
         return None
 
 def get_history(prompt_id, COMFY_URL):
-    """Get finished job history"""
-    url =f"{COMFY_URL}/history/{prompt_id}"
-    logger.info("Fetching ComfyUI history | prompt_id=%s", prompt_id)
+    try:
+        """Get finished job history"""
+        url =f"{COMFY_URL}/history/{prompt_id}"
+        logger.info("Fetching ComfyUI history | prompt_id=%s", prompt_id)
 
 
-    print('hstory url', url )
-    res = requests.get(url )
+        print('hstory url', url )
+        res = requests.get(url )
+        logger.info(f"History from the comfy:{str(res.status_code)} code ")
 
-    print("res--->>",res)
-    if res.status_code != 200:
-        return None
-    return res.json()
-
+        print("res--->>",res)
+        if res.status_code != 200:
+            return {}
+        return res.json()
+    except Exception as e:
+        logger.error(f"unabe to get the response from  the due to {str(e)}")
+        return {}
 
 # single image to downlaod
 def download_image_video(filename, img_type, COMFY_URL, subfolder=None, format=None, frame_rate=None):

@@ -148,6 +148,9 @@ def generate_task(self, response_id: str, video: bool = False):
         print("ComfyUI URL in task:", COMFY_URL)
         
         history = get_history(response_id, COMFY_URL)
+        if not history:
+            raise self.retry(countdown=retry_delay)
+
         outputs = history.get(response_id, {}).get("outputs", {})
 
         # -------------------------
