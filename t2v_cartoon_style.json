@@ -32,7 +32,7 @@
     "inputs": {
       "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
       "type": "wan",
-      "device": "cpu"
+      "device": "default"
     },
     "class_type": "CLIPLoader",
     "_meta": {
@@ -58,7 +58,7 @@
         "112",
         1
       ],
-      "length": 161,
+      "length": 81,
       "batch_size": 1,
       "positive": [
         "123",
