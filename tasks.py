@@ -43,7 +43,7 @@ logging.basicConfig(level=logging.INFO)
 # -------------------------------------------------
 LOCK_TTL = 3600            # Max time one task may run
 DONE_TTL = 24 * 3600       # Keep completion marker
-DEFAULT_RETRY = 5
+DEFAULT_RETRY = 3
 VIDEO_RETRY = 20
 
 # -------------------------
