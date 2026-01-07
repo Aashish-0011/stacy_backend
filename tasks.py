@@ -43,8 +43,8 @@ logging.basicConfig(level=logging.INFO)
 # -------------------------------------------------
 LOCK_TTL = 3600            # Max time one task may run
 DONE_TTL = 24 * 3600       # Keep completion marker
-DEFAULT_RETRY = 10
-VIDEO_RETRY = 30
+DEFAULT_RETRY = 5
+VIDEO_RETRY = 20
 
 # -------------------------
 # Celery Task
