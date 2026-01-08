@@ -43,8 +43,8 @@ logging.basicConfig(level=logging.INFO)
 # -------------------------------------------------
 LOCK_TTL = 3600            # Max time one task may run
 DONE_TTL = 24 * 3600       # Keep completion marker
-DEFAULT_RETRY = 3
-VIDEO_RETRY = 20
+DEFAULT_RETRY = 1
+VIDEO_RETRY = 15
 
 # -------------------------
 # Celery Task
@@ -52,7 +52,7 @@ VIDEO_RETRY = 20
 @celery_app.task(
     bind=True,
     name="generate.comfy.task",
-    max_retries=30,
+    max_retries=60,
     default_retry_delay=DEFAULT_RETRY,
 )
 def generate_task(self, response_id: str, video: bool = False):
