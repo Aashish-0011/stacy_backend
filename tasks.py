@@ -55,7 +55,7 @@ VIDEO_RETRY = 15
     max_retries=60,
     default_retry_delay=DEFAULT_RETRY,
 )
-def generate_task(self, response_id: str, video: bool = False):
+def generate_task(self, response_id: str, video: bool = False, COMFY_URL= None):
     # -------------------------
     # Validate input
     # -------------------------
@@ -143,8 +143,8 @@ def generate_task(self, response_id: str, video: bool = False):
         # -------------------------
         # Fetch ComfyUI history
         # -------------------------
-        RUNPOD_ID = get_running_pod()
-        COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+        # RUNPOD_ID = get_running_pod()
+        # COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
         print("ComfyUI URL in task:", COMFY_URL)
         
         history = get_history(response_id, COMFY_URL)
