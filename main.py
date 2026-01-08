@@ -15,7 +15,7 @@ from celery.result import AsyncResult
 from celery_app import celery_app  # import your configured Celery app
 import db_operations
 from database import SessionLocal
-from run_pod_utility import get_running_pod
+from run_pod_utility import get_running_pod, map_ip_workflow
 from sqlalchemy.orm import Session
 from deps import get_db
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,14 +48,18 @@ load_dotenv()
 model_path = os.getenv("IMG_MODEL")
 # COMFY_URL = os.getenv("COMFY_URL")
 
-RUNPOD_ID=get_running_pod()
+RUNPOD_ID, GPU_COUNT=get_running_pod()
+INITAL_PORT=8188
+
+
 
 logger.info(f"Pod id fetched successsfully: {RUNPOD_ID}")
 
 
 print('RUNPOD_ID--->>>',RUNPOD_ID)
 
-COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+# COMFY_URL=f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+COMFY_URL= map_ip_workflow(gpu_count=GPU_COUNT, RUNPOD_ID=RUNPOD_ID)
 
 print('COMFY_URL--->>>',COMFY_URL)
 logger.info(f"COMFY_URL: {COMFY_URL}")
@@ -178,7 +182,7 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
         #  Send workflow to ComfyUI
         logger.info("Sending workflow to ComfyUI")
-        res=send_prompt(workflow, COMFY_URL)
+        res=send_prompt(workflow, COMFY_URL.get('t2i'))
 
         if not res:
             logger.error("ComfyUI returned empty response")
@@ -207,7 +211,7 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
             )
         print(f"Created Task: {generating_task.prompt_id}, Status: {generating_task.status}")
         # start the celery task to fetch the images
-        task = generate_task.delay(response_id=response_id, video=False)
+        task = generate_task.delay(response_id=response_id, video=False, COMFY_URL = COMFY_URL.get('t2i') )
         logger.info("Celery task started | task_id=%s", task.id)
 
         return JSONResponse(
@@ -286,7 +290,7 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
  
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow, COMFY_URL)
+    res=send_prompt(workflow, COMFY_URL.get('t2v'))
 
     if not res:
         logger.error("ComfyUI returned empty response")
@@ -313,7 +317,7 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
                 generating_task.status,
             )
     # start the celery task to fetch the images
-    task = generate_task.delay(response_id=response_id, video=True)
+    task = generate_task.delay(response_id=response_id, video=True, COMFY_URL = COMFY_URL.get('t2v'))
     logger.info("Celery task started | task_id=%s", task.id)
 
     
@@ -347,7 +351,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
 
 
     #  upload image to comfyui server
-    comfy_image_path = upload_image_to_comfy(input_path, COMFY_URL)
+    comfy_image_path = upload_image_to_comfy(input_path, COMFY_URL.get('i2v'))
     print("Uploaded image to ComfyUI:", comfy_image_path)
 
     # workflow for smooth video
@@ -384,7 +388,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     print('\n\n=*80\n\n')
 
     #  Send workflow to ComfyUI
-    res=send_prompt(workflow, COMFY_URL)
+    res=send_prompt(workflow, COMFY_URL.get('i2v'))
 
     if not res:
         logger.error("ComfyUI returned empty response")
@@ -416,7 +420,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
             )
 
     # start the celery task to fetch the images
-    task = generate_task.delay(response_id=response_id, video=True)
+    task = generate_task.delay(response_id=response_id, video=True, COMFY_URL = COMFY_URL.get('i2v'))
     logger.info("Celery task started | task_id=%s", task.id)
     
     return JSONResponse(
@@ -503,8 +507,9 @@ def get_prompt_response_api(
 @app.post("/api/update_runpod_id")
 def update_runpod_id():
     global RUNPOD_ID, COMFY_URL
-    RUNPOD_ID = get_running_pod()
-    COMFY_URL = f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+    RUNPOD_ID, GPU_COUNT = get_running_pod()
+    # COMFY_URL = f"https://{RUNPOD_ID}-8188.proxy.runpod.net"
+    COMFY_URL= map_ip_workflow(gpu_count=GPU_COUNT, RUNPOD_ID=RUNPOD_ID)
     logger.info(f"Pod id fetched successsfully by api: {RUNPOD_ID} and COMFY_URL : {COMFY_URL}")
     if RUNPOD_ID:
         print("Updated RUNPOD_ID:", RUNPOD_ID)
