@@ -98,7 +98,7 @@
   },
   "52": {
     "inputs": {
-      "image": "ComfyUI_00034_.png"
+      "image": "(1).jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -214,7 +214,7 @@
     "inputs": {
       "frame_rate": 16,
       "loop_count": 0,
-      "filename_prefix": "2025-12-17/wan22_",
+      "filename_prefix": "2026-01-09/wan22_",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -318,7 +318,7 @@
     "inputs": {
       "frame_rate": 32,
       "loop_count": 0,
-      "filename_prefix": "Video/2025-12-17/160156",
+      "filename_prefix": "Video/2026-01-09/121413",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 15,
@@ -378,7 +378,7 @@
   },
   "81": {
     "inputs": {
-      "filename_prefix": "Video/2025-12-17/160156LASTFRAME",
+      "filename_prefix": "Video/2026-01-09/121413LASTFRAME",
       "images": [
         "79",
         0
@@ -391,7 +391,7 @@
   },
   "82": {
     "inputs": {
-      "seed": 369923193621474
+      "seed": -1
     },
     "class_type": "Seed (rgthree)",
     "_meta": {
@@ -414,7 +414,7 @@
   },
   "88": {
     "inputs": {
-      "value": "pov, ridding dick, orgasm face"
+      "value": "Make the girl  running"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -423,7 +423,7 @@
   },
   "89": {
     "inputs": {
-      "text": "pov, ridding dick, orgasm face",
+      "text": "Make the girl  running",
       "anything": [
         "84",
         0
