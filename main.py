@@ -371,7 +371,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     print('prompt:', prompt)
 
     # update the prompt node in the workflow
-    workflow =  update_workflow(workflow=workflow, prompt=prompt, prompt_node_index=prompt_node_index, I2V=True, image_path=comfy_image_path, image_node_index=image_node_index, seed_node_index=82)
+    workflow =  update_workflow(workflow=workflow, prompt=prompt, prompt_node_index=prompt_node_index, I2V=True, image_path=comfy_image_path, image_node_index=image_node_index)
 
     if width and height:
         slider_node_id="97"
