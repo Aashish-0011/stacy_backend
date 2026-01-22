@@ -294,7 +294,7 @@
   },
   "120": {
     "inputs": {
-      "sage_attention": "sageattn_qk_int8_pv_fp16_cuda",
+      "sage_attention": "auto",
       "allow_compile": false,
       "model": [
         "107",
@@ -308,7 +308,7 @@
   },
   "122": {
     "inputs": {
-      "sage_attention": "sageattn_qk_int8_pv_fp16_cuda",
+      "sage_attention": "auto",
       "allow_compile": false,
       "model": [
         "108",
