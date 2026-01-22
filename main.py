@@ -261,12 +261,13 @@ def generate_text_video_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
     if video_style == "cartoon":
         #   workflow for semi-realistic image
-        workflow_file = "t2v_cartoon_style.json"
+        workflow_file = "t2v_cartoon_style_optimized_api.json"
         prompt_node_index = "123"
     else:
         # workflow for t2i_ultra_realistic2
         video_style = "smooth"
-        workflow_file = "wan22_smooth_workflow_t2v.json"
+        # workflow_file = "wan22_smooth_workflow_t2v.json"
+        workflow_file = "wan22_smooth_workflow_t2v_optimized_api.json"
         prompt_node_index = "123"
     
     # slider node id for update width and  height
