@@ -149,7 +149,7 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
             img_type = "ultra_realistic"
             # workflow for t2i_ultra_realistic2
             # workflow_file = "t2i_ultra_realistic2.json"
-            workflow_file = "t2i_ultra_realistic2_optimized_flow.json"
+            workflow_file = "t2i_ultra_realistic2_optimized.json"
             prompt_node_index = "3"
             # seed_node_index = "12"
             seed_node_index = "5"
