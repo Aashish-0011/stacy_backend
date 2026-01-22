@@ -141,15 +141,18 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
 
         if img_type == "semi_realistic":
             #   workflow for semi-realistic image
-            workflow_file = "t2i_semi_realistic2.json"
+            # workflow_file = "t2i_semi_realistic2.json"
+            workflow_file = "t2i_semi_realistic2_optimized.json"
             prompt_node_index = "3"
-            seed_node_index = "12"
+            seed_node_index = "5"
         else:
             img_type = "ultra_realistic"
             # workflow for t2i_ultra_realistic2
-            workflow_file = "t2i_ultra_realistic2.json"
+            # workflow_file = "t2i_ultra_realistic2.json"
+            workflow_file = "t2i_ultra_realistic2_optimized_flow.json"
             prompt_node_index = "3"
-            seed_node_index = "12"
+            # seed_node_index = "12"
+            seed_node_index = "5"
 
         # node id of the empty latent image
         laten_image_node='6'
@@ -183,6 +186,7 @@ def generate_image_with_comfy(data: Prompt, db: Session = Depends(get_db)):
         #  Send workflow to ComfyUI
         logger.info("Sending workflow to ComfyUI")
         res=send_prompt(workflow, COMFY_URL.get('t2i'))
+        print('ComfyUI response:', res)
 
         if not res:
             logger.error("ComfyUI returned empty response")
