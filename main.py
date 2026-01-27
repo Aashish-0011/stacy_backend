@@ -360,7 +360,7 @@ def generate_image_video_with_comfy(file: UploadFile = File(...), prompt: str = 
     print("Uploaded image to ComfyUI:", comfy_image_path)
 
     # workflow for smooth video
-    workflow_file = "WAN22_Smooth_Workflow_v2_I2V.json"
+    workflow_file = "WAN22_Smooth_Workflow_v2_I2V_optimized_api.json"
     prompt_node_index = "88"
     image_node_index = "52"
 
