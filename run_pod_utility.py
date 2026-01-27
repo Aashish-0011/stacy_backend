@@ -26,7 +26,8 @@ def get_running_pod():
         # get the id of the running pod  on which sage attention configure
         for pod in running_pods:
             print('running pod:', pod)
-            if (pod.get('imageName') == 'nextdiffusionai/comfyui-sageattention:cuda12.8') or (pod.get('imageName') == 'nextdiffusionai/comfyui-sageattention:cuda12.8-new'):
+            if 'nextdiffusionai/comfyui-sageattention:cuda12.8' in pod.get('imageName', ''):
+
                 gpuCount=pod.get('gpuCount')
                 print('Found running pod with imageName nextdiffusionai/comfyui-sageattention:cuda12.8')
                 print('Pod ID:', pod.get('id'))
